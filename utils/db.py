@@ -1,6 +1,7 @@
 import os
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.orm import declarative_base, sessionmaker
+from log import logger
 
 # Menggunakan koneksi PostgreSQL
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://user:password@localhost/clip_ai")
@@ -9,24 +10,17 @@ engine = create_engine(DATABASE_URL, echo=False)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-class Clip(Base):
-    __tablename__ = "clips"
+from models.clip import Clip
+from models.user import User
 
-    id = Column(Integer, primary_key=True, index=True)
-    video_url = Column(String, index=True)
-    topic = Column(String)
-    start_time = Column(Integer)
-    end_time = Column(Integer)
-    title_en = Column(String)
-    desc_en = Column(String)
-    score = Column(Integer, default=0)
+# Base.metadata.create_all akan memantau model yang diimpor
 
 def init_db():
     try:
         Base.metadata.create_all(bind=engine)
-        print("✅ Database PostgreSQL berhasil diinisialisasi via SQLAlchemy.")
+        logger.info("✅ Database PostgreSQL berhasil diinisialisasi via SQLAlchemy.")
     except Exception as e:
-        print(f"⚠️ Gagal inisialisasi PostgreSQL (pastikan DATABASE_URL benar dan server menyala): {e}")
+        logger.error(f"⚠️ Gagal inisialisasi PostgreSQL (pastikan DATABASE_URL benar dan server menyala): {e}")
 
 def save_clip(video_url: str, topic: str, start_time: int, end_time: int, title_en: str, desc_en: str) -> int:
     db = SessionLocal()
@@ -45,7 +39,7 @@ def save_clip(video_url: str, topic: str, start_time: int, end_time: int, title_
         db.refresh(new_clip)
         return new_clip.id
     except Exception as e:
-        print(f"Error saving to db: {e}")
+        logger.error(f"Error saving to db: {e}")
         return 0
     finally:
         db.close()

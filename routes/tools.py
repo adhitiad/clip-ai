@@ -10,9 +10,11 @@ Endpoint untuk fitur tambahan:
 """
 
 import os
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 from typing import Optional
+from core.security import require_plan, require_role
+from models.user import UserPlan, UserRole, User
 
 router = APIRouter(prefix="/tools", tags=["AI Tools"])
 
@@ -48,7 +50,10 @@ class PerformanceFeedback(BaseModel):
 # ─── ENDPOINTS ────────────────────────────────────────────────────────────────
 
 @router.post("/dub")
-async def dub_video(request: DubRequest):
+async def dub_video(
+    request: DubRequest, 
+    _current_user: User = Depends(require_plan(UserPlan.PREMIUM))
+):
     """
     AI Voice-Over Auto Dubbing.
 
@@ -85,7 +90,10 @@ async def dub_video(request: DubRequest):
 
 
 @router.post("/viral-score")
-async def predict_viral(request: ViralScoreRequest):
+async def predict_viral(
+    request: ViralScoreRequest,
+    _current_user: User = Depends(require_plan(UserPlan.BUSINESS))
+):
     """
     Prediksi skor viral (1-10) sebelum render menggunakan ML model.
 
@@ -138,14 +146,15 @@ async def predict_viral(request: ViralScoreRequest):
 
 
 @router.get("/model-status")
-async def model_status():
+async def model_status(
+    _current_user: User = Depends(require_role([UserRole.OWNER]))
+):
     """
     Cek status model ML Viral Predictor:
     - Berapa sample training yang sudah ada
     - Apakah model sudah dilatih
     - Kapan terakhir dilatih
     """
-    import os
     from services.viral_predictor import DATA_PATH, MODEL_PATH, RETRAIN_EVERY
 
     # Count training samples
@@ -189,7 +198,10 @@ async def model_status():
 
 
 @router.post("/feedback")
-async def record_feedback(request: PerformanceFeedback):
+async def record_feedback(
+    request: PerformanceFeedback,
+    _current_user: User = Depends(require_plan(UserPlan.PREMIUM))
+):
     """
     Record performa nyata klip setelah dipublish.
     Data ini digunakan untuk continuous learning model ML.

@@ -4,12 +4,14 @@ from fastapi import FastAPI
 from routes.clips import router as clips_router
 from routes.niche import router as niche_router
 from routes.tools import router as tools_router
-from logs import logger
+from routes.auth import router as auth_router
+from log import logger
 
 app = FastAPI(title="AI Clipper Hub - Antigravity Edition")
 PORT = int(os.getenv("PORT", 8000))
 
 # Daftarkan router
+app.include_router(auth_router)
 app.include_router(clips_router)
 app.include_router(niche_router)
 app.include_router(tools_router)

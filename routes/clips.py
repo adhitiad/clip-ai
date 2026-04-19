@@ -1,14 +1,20 @@
 import os
 
-from fastapi import FastAPI, BackgroundTasks, APIRouter
+from fastapi import FastAPI, BackgroundTasks, APIRouter, Depends
 from pydantic import BaseModel
+from typing import List
 
-from utils.youtube import download_audio_only, check_and_get_youtube_subs
+from utils.youtube import download_video_segment, download_audio_only, check_and_get_youtube_subs
 from core.ai_pipeline import process_video_ai_logic
 from services.video_engine import process_clip, crop_to_vertical_cpu
 from utils.db import save_clip, update_clip_score
+from core.auth import get_current_active_user, get_db
+from core.security import check_credits, deduct_credit
+from models.user import User
+from sqlalchemy.orm import Session
+from log import logger
 
-router = APIRouter()
+router = APIRouter(prefix="/clips", tags=["Clip Management"])
 
 class VideoRequest(BaseModel):
     url: str
@@ -20,16 +26,21 @@ class FeedbackRequest(BaseModel):
     score: int  # e.g., 1 for thumbs up, -1 for thumbs down
 
 @router.post("/generate-clips")
-async def generate_clips(request: VideoRequest, background_tasks: BackgroundTasks):
+async def generate_clips(
+    request: VideoRequest, 
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(check_credits)
+):
     transcript_text = ""
     audio_path = ""
 
     # 1. Coba curi subtitle YouTube dulu (Kecepatan Instan)
-    transcript_text = check_and_get_youtube_subs(request.url, request.target_language)
+    transcript_text = check_and_get_youtube_subs(request.url, request.target_language) or ""
 
     # 2. Jika gagal, unduh audio
     if not transcript_text:
-        print("Subtitle tidak tersedia, mengunduh audio...")
+        logger.info(f"Subtitle tidak tersedia untuk {request.url}, mengunduh audio...")
         audio_path = download_audio_only(request.url)
 
     # 3. Proses AI Pipeline (akan otomatis pakai Whisper jika transcript_text kosong)
@@ -70,6 +81,9 @@ async def generate_clips(request: VideoRequest, background_tasks: BackgroundTask
     from worker import process_all_clips_task
     task = process_all_clips_task.delay(request.url, clips_metadata, request.target_language)
 
+    # 5. Potong kredit setelah berhasil di-queue
+    deduct_credit(db, current_user)
+
     return {
         "status": "processing",
         "message": "AI selesai menganalisis. Memulai CPU rendering via Celery Task Queue.",
@@ -90,5 +104,5 @@ def process_all_clips(video_url: str, clips_metadata: list, lang: str):
     # Menggunakan fungsi process_clip dari video_engine
     from utils.youtube import download_video_segment
     for index, clip in enumerate(clips_metadata):
-        print(f"Persiapan render klip {index+1}: {clip.get('title_id')} ({clip.get('start_time')}s - {clip.get('end_time')}s)")
+        logger.info(f"Persiapan render klip {index+1}: {clip.get('title_id')} ({clip.get('start_time')}s - {clip.get('end_time')}s)")
         process_clip(video_url, clip, index+1, download_video_segment)

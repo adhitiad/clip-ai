@@ -24,6 +24,7 @@ import subprocess
 import requests
 from pathlib import Path
 from typing import Optional
+from log import logger
 
 GROQ_API_KEY      = os.getenv("GROQ_API_KEY", "")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
@@ -49,7 +50,7 @@ def transcribe_with_segments(audio_path: str) -> list[dict]:
     from groq import Groq
     client = Groq(api_key=GROQ_API_KEY)
 
-    print("[Dubbing] Step 1: Transkripsi dengan Groq Whisper...")
+    logger.info("[Dubbing] Step 1: Transkripsi dengan Groq Whisper...")
     with open(audio_path, "rb") as f:
         result = client.audio.transcriptions.create(
             file=(audio_path, f.read()),
@@ -78,7 +79,7 @@ def translate_segments(segments: list[dict], target_lang: str = "id") -> list[di
     lang_name = "Indonesian" if target_lang == "id" else "English"
     full_text = "\n".join([f"[{i}] {s['text']}" for i, s in enumerate(segments)])
 
-    print(f"[Dubbing] Step 2: Menerjemahkan {len(segments)} segmen ke {lang_name}...")
+    logger.info(f"[Dubbing] Step 2: Menerjemahkan {len(segments)} segmen ke {lang_name}...")
 
     prompt = f"""Translate the following numbered segments to {lang_name}.
 Keep the numbering format exactly [0], [1], etc.
@@ -158,7 +159,7 @@ def tts_elevenlabs(text: str, lang: str = "id", output_path: str = "") -> Option
         return output_path
 
     except requests.RequestException as e:
-        print(f"[Dubbing] ElevenLabs TTS error: {e}")
+        logger.error(f"[Dubbing] ElevenLabs TTS error: {e}")
         return None
 
 
@@ -176,7 +177,7 @@ def tts_gtts_fallback(text: str, lang: str = "id", output_path: str = "") -> Opt
         tts.save(output_path)
         return output_path
     except Exception as e:
-        print(f"[Dubbing] gTTS fallback error: {e}")
+        logger.error(f"[Dubbing] gTTS fallback error: {e}")
         return None
 
 
@@ -185,7 +186,7 @@ def generate_tts(text: str, lang: str = "id", output_path: str = "") -> Optional
     result = tts_elevenlabs(text, lang, output_path)
     if result:
         return result
-    print("[Dubbing] ElevenLabs tidak tersedia, fallback ke gTTS...")
+    logger.warning("[Dubbing] ElevenLabs tidak tersedia, fallback ke gTTS...")
     return tts_gtts_fallback(text, lang, output_path)
 
 
@@ -225,7 +226,7 @@ def merge_dub_to_video(
     """
     import ffmpeg
 
-    print(f"[Dubbing] Step 4: Merging dubbed audio ke video...")
+    logger.info(f"[Dubbing] Step 4: Merging dubbed audio ke video...")
 
     try:
         video_probe = ffmpeg.probe(video_path)
@@ -238,7 +239,7 @@ def merge_dub_to_video(
             # Batasi di range wajar 0.7x - 1.5x
             speed_ratio = max(0.7, min(1.5, speed_ratio))
             atempo_filter = f"atempo={1/speed_ratio:.3f}"
-            print(f"[Dubbing]   Speed adjust: {speed_ratio:.2f}x (dub={dub_duration:.1f}s, vid={vid_duration:.1f}s)")
+            logger.info(f"[Dubbing]   Speed adjust: {speed_ratio:.2f}x (dub={dub_duration:.1f}s, vid={vid_duration:.1f}s)")
         else:
             atempo_filter = None
 
@@ -273,11 +274,11 @@ def merge_dub_to_video(
             .overwrite_output()
             .run(quiet=True)
         )
-        print(f"[Dubbing] Selesai: {output_path}")
+        logger.info(f"[Dubbing] Selesai: {output_path}")
         return output_path
 
     except Exception as e:
-        print(f"[Dubbing] FFmpeg merge error: {e}")
+        logger.error(f"[Dubbing] FFmpeg merge error: {e}")
         return None
 
 
@@ -305,15 +306,15 @@ def dub_video_clip(
     """
     # Validasi
     if not os.path.exists(video_path):
-        print(f"[Dubbing] Video tidak ditemukan: {video_path}")
+        logger.error(f"[Dubbing] Video tidak ditemukan: {video_path}")
         return None
 
     if not GROQ_API_KEY:
-        print("[Dubbing] GROQ_API_KEY belum dikonfigurasi.")
+        logger.error("[Dubbing] GROQ_API_KEY belum dikonfigurasi.")
         return None
 
     lang_name = "Indonesia" if target_lang == "id" else "English"
-    print(f"\n[Dubbing] Memulai dubbing ke {lang_name} untuk: {os.path.basename(video_path)}")
+    logger.info(f"\n[Dubbing] Memulai dubbing ke {lang_name} untuk: {os.path.basename(video_path)}")
 
     # Auto-generate output path
     if not output_path:
@@ -326,7 +327,7 @@ def dub_video_clip(
 
     try:
         import ffmpeg as _ffmpeg
-        print("[Dubbing] Mengekstrak audio dari video...")
+        logger.info("[Dubbing] Mengekstrak audio dari video...")
         (
             _ffmpeg.input(video_path)
             .output(temp_audio, acodec="libmp3lame", qscale=2)
@@ -337,7 +338,7 @@ def dub_video_clip(
         # STEP 1: Transkripsi
         segments = transcribe_with_segments(temp_audio)
         if not segments:
-            print("[Dubbing] Tidak ada segmen transkripsi ditemukan.")
+            logger.warning("[Dubbing] Tidak ada segmen transkripsi ditemukan.")
             return None
 
         # STEP 2: Translate
@@ -345,12 +346,12 @@ def dub_video_clip(
 
         # Gabungkan semua teks terjemahan
         full_dubbed_text = " ".join(s["translated_text"] for s in translated_segs)
-        print(f"[Dubbing] Teks dubbing ({len(full_dubbed_text)} karakter): {full_dubbed_text[:100]}...")
+        logger.info(f"[Dubbing] Teks dubbing ({len(full_dubbed_text)} karakter): {full_dubbed_text[:100]}...")
 
         # STEP 3: Generate TTS
         dub_audio = generate_tts(full_dubbed_text, target_lang, temp_dub)
         if not dub_audio:
-            print("[Dubbing] TTS gagal dihasilkan.")
+            logger.error("[Dubbing] TTS gagal dihasilkan.")
             return None
 
         # STEP 4: Merge ke video

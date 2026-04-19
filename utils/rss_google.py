@@ -16,6 +16,7 @@ import xml.etree.ElementTree as ET
 from urllib.parse import quote_plus, urlencode
 from typing import Optional
 import sys
+from log import logger
 
 # Fix encoding untuk Windows CMD
 if sys.platform == "win32":
@@ -73,7 +74,7 @@ def _fetch_rss_feedparser(url: str) -> list:
         feed = feedparser.parse(url)
         return feed.entries
     except Exception as e:
-        print(f"[RSS] RSS fetch error dari {url}: {e}")
+        logger.error(f"[RSS] RSS fetch error dari {url}: {e}")
         return []
 
 
@@ -85,10 +86,10 @@ def _fetch_rss_xml(url: str, timeout: int = 10) -> Optional[ET.Element]:
         root = ET.fromstring(resp.content)
         return root
     except requests.RequestException as e:
-        print(f"[RSS] Gagal fetch {url}: {e}")
+        logger.error(f"[RSS] Gagal fetch {url}: {e}")
         return None
     except ET.ParseError as e:
-        print(f"[RSS] XML parse error dari {url}: {e}")
+        logger.error(f"[RSS] XML parse error dari {url}: {e}")
         return None
 
 
@@ -105,7 +106,7 @@ def get_trending_topics(geo: str = "id", max_items: int = 20) -> list[dict]:
         list of dict: [{"title": str, "approx_traffic": str, "news_items": list}]
     """
     url = GOOGLE_TRENDS_URLS.get(geo, GOOGLE_TRENDS_URLS["id"])
-    print(f"[RSS] Mengambil Google Trends untuk geo='{geo.upper()}'...")
+    logger.info(f"[RSS] Mengambil Google Trends untuk geo='{geo.upper()}'...")
 
     entries = _fetch_rss_feedparser(url)
     if not entries:
@@ -197,7 +198,7 @@ Jawab HANYA dalam format JSON array, tanpa penjelasan tambahan:
             return result
         return []
     except Exception as e:
-        print(f"[RSS] AI niche analysis error: {e}")
+        logger.error(f"[RSS] AI niche analysis error: {e}")
         # Fallback: return raw topics sebagai niche sederhana
         return [
             {
@@ -226,7 +227,7 @@ def search_youtube_videos_rss(query: str, max_results: int = 10) -> list[dict]:
     Returns:
         list of dict: [{"title", "url", "channel", "duration", "view_count", "thumbnail"}]
     """
-    print(f"[RSS] Mencari video YouTube untuk query: '{query}'")
+    logger.info(f"[RSS] Mencari video YouTube untuk query: '{query}'")
 
     # Strategi 1: yt-dlp search (most reliable, no API key needed)
     results = _search_via_ytdlp(query, max_results)
@@ -279,7 +280,7 @@ def _search_via_ytdlp(query: str, max_results: int = 10) -> list[dict]:
         return results
 
     except Exception as e:
-        print(f"[RSS] yt-dlp search gagal: {e}")
+        logger.error(f"[RSS] yt-dlp search gagal: {e}")
         return []
 
 

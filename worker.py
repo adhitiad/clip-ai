@@ -33,11 +33,12 @@ def process_all_clips_task(self, video_url: str, clips_metadata: list, lang: str
     import tempfile 
     from utils.youtube import download_video_segment
 
+    from log import logger
     total_clips = len(clips_metadata)
     all_rendered_files = []
     
     for index, clip in enumerate(clips_metadata):
-        print(f"Celery Worker -> Persiapan render klip {index+1}/{total_clips}: {clip.get('title_en')} ({clip.get('start_time')}s - {clip.get('end_time')}s)")
+        logger.info(f"Celery Worker -> Persiapan render klip {index+1}/{total_clips}: {clip.get('title_en')} ({clip.get('start_time')}s - {clip.get('end_time')}s)")
         
         # Proses rendering
         variant_paths = process_clip(video_url, clip, index+1, download_video_segment)

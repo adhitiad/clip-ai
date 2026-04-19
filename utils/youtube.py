@@ -1,6 +1,7 @@
 import os
 import yt_dlp
 import webvtt
+from log import logger
 
 
 def check_and_get_youtube_subs(video_url: str, lang: str = "id"):
@@ -8,7 +9,7 @@ def check_and_get_youtube_subs(video_url: str, lang: str = "id"):
     Mencoba mengambil subtitle dari YouTube.
     Mengembalikan teks transkrip jika berhasil, atau None jika gagal.
     """
-    print(f"Mencari subtitle bawaan YouTube untuk bahasa: {lang}...")
+    logger.info(f"Mencari subtitle bawaan YouTube untuk bahasa: {lang}...")
 
     # Konfigurasi yt-dlp KHUSUS untuk menarik subtitle tanpa mengunduh video
     ydl_opts = {
@@ -31,14 +32,14 @@ def check_and_get_youtube_subs(video_url: str, lang: str = "id"):
             vtt_path = f"temp/transcript_{video_id}.{lang}.vtt"
 
             if os.path.exists(vtt_path):
-                print("Subtitle ditemukan! Memproses secara lokal...")
+                logger.info("Subtitle ditemukan! Memproses secara lokal...")
                 return parse_vtt_to_transcript(vtt_path)
             else:
-                print("Tidak ada subtitle YouTube yang tersedia.")
+                logger.warning("Tidak ada subtitle YouTube yang tersedia.")
                 return None
 
     except Exception as e:
-        print(f"Error saat mengekstrak subtitle: {e}")
+        logger.error(f"Error saat mengekstrak subtitle: {e}")
         return None
 
 

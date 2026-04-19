@@ -31,6 +31,7 @@ import hashlib
 import numpy as np
 from pathlib import Path
 from typing import Optional
+from log import logger
 
 MODEL_DIR  = "models"
 MODEL_PATH = os.path.join(MODEL_DIR, "viral_predictor.pkl")
@@ -196,7 +197,7 @@ def _load_model():
             with open(MODEL_PATH, "rb") as f:
                 return pickle.load(f)
         except Exception as e:
-            print(f"[ViralML] Gagal load model: {e}")
+            logger.error(f"[ViralML] Gagal load model: {e}")
     return None
 
 
@@ -235,7 +236,7 @@ def save_training_sample(features: list[float], viral_score: float) -> None:
     # Check apakah perlu retrain
     X, y = _load_training_data()
     if len(X) >= RETRAIN_EVERY and len(X) % RETRAIN_EVERY == 0:
-        print(f"[ViralML] {len(X)} samples tersedia, melakukan retrain...")
+        logger.info(f"[ViralML] {len(X)} samples tersedia, melakukan retrain...")
         train_model(X, y)
 
 
@@ -248,10 +249,10 @@ def train_model(X: list, y: list) -> None:
         from sklearn.model_selection import cross_val_score
 
         if len(X) < 10:
-            print(f"[ViralML] Data terlalu sedikit ({len(X)} samples) untuk training.")
+            logger.warning(f"[ViralML] Data terlalu sedikit ({len(X)} samples) untuk training.")
             return
 
-        print(f"[ViralML] Training model dengan {len(X)} samples...")
+        logger.info(f"[ViralML] Training model dengan {len(X)} samples...")
         model = Pipeline([
             ("scaler", StandardScaler()),
             ("gbr", GradientBoostingRegressor(
@@ -267,16 +268,16 @@ def train_model(X: list, y: list) -> None:
         # Cross-validation score
         if len(X) >= 20:
             scores = cross_val_score(model, X, y, cv=3, scoring="r2")
-            print(f"[ViralML] Model R2 score (CV): {scores.mean():.3f} +/- {scores.std():.3f}")
+            logger.info(f"[ViralML] Model R2 score (CV): {scores.mean():.3f} +/- {scores.std():.3f}")
 
         with open(MODEL_PATH, "wb") as f:
             pickle.dump(model, f)
-        print(f"[ViralML] Model disimpan ke {MODEL_PATH}")
+        logger.info(f"[ViralML] Model disimpan ke {MODEL_PATH}")
 
     except ImportError:
-        print("[ViralML] scikit-learn belum terinstall. Jalankan: pip install scikit-learn")
+        logger.error("[ViralML] scikit-learn belum terinstall. Jalankan: pip install scikit-learn")
     except Exception as e:
-        print(f"[ViralML] Training error: {e}")
+        logger.error(f"[ViralML] Training error: {e}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -314,7 +315,7 @@ def predict_viral_score(
             score = max(1.0, min(10.0, score_raw))
             confidence = "ml_model"
         except Exception as e:
-            print(f"[ViralML] Prediksi ML error, fallback rule-based: {e}")
+            logger.error(f"[ViralML] Prediksi ML error, fallback rule-based: {e}")
             score = rule_based_score(features)
             confidence = "rule_based_fallback"
     else:
@@ -329,7 +330,7 @@ def predict_viral_score(
         "ml_features": features,
     }
 
-    print(
+    logger.info(
         f"[ViralML] '{clip_metadata.get('title_id', 'Untitled')[:40]}' "
         f"→ Score: {score:.1f}/10 "
         f"({'RENDER' if result['ml_should_render'] else 'SKIP'}) "
@@ -360,7 +361,7 @@ def batch_predict_and_filter(
     if not clips:
         return []
 
-    print(f"\n[ViralML] Mengevaluasi {len(clips)} klip kandidat...")
+    logger.info(f"\n[ViralML] Mengevaluasi {len(clips)} klip kandidat...")
 
     scored = [predict_viral_score(c, audio_path, threshold) for c in clips]
     scored.sort(key=lambda x: x["ml_viral_score"], reverse=True)
@@ -372,7 +373,7 @@ def batch_predict_and_filter(
         should_render = scored[:always_keep_best]
 
     skipped = len(clips) - len(should_render)
-    print(
+    logger.info(
         f"[ViralML] Hasil filter: {len(should_render)}/{len(clips)} klip akan dirender "
         f"({skipped} diskip, hemat {skipped * 100 // len(clips) if clips else 0}% resource)"
     )
@@ -395,5 +396,5 @@ def record_actual_performance(clip_id: int, actual_views: int, actual_likes: int
     # Load features klip dari DB (simplified: pakai clip_id sebagai identifier)
     # Dalam implementasi penuh, load dari DB berdasarkan clip_id
     # Di sini kita simpan placeholder untuk di-match nanti
-    print(f"[ViralML] Performa klip {clip_id}: {actual_views} views → skor {score:.1f}")
+    logger.info(f"[ViralML] Performa klip {clip_id}: {actual_views} views → skor {score:.1f}")
     # TODO: integrasi dengan DB untuk load features lalu save_training_sample(features, score)

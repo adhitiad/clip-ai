@@ -1,20 +1,25 @@
+import sys
 import os
 import requests
 
+# Menambahkan root directory ke sys.path untuk import log
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from log import logger
+
 def download_file(url, dest):
     if not os.path.exists(dest):
-        print(f"Downloading {dest}...")
+        logger.info(f"Downloading {dest}...")
         try:
             r = requests.get(url, stream=True)
             r.raise_for_status()
             with open(dest, 'wb') as f:
                 for chunk in r.iter_content(chunk_size=8192):
                     f.write(chunk)
-            print(f"✅ Downloaded {dest}")
+            logger.info(f"✅ Downloaded {dest}")
         except Exception as e:
-            print(f"❌ Failed to download {dest}: {e}")
+            logger.error(f"❌ Failed to download {dest}: {e}")
     else:
-        print(f"🆗 {dest} already exists.")
+        logger.info(f"OK: {dest} already exists.")
 
 def main():
     os.makedirs("assets", exist_ok=True)

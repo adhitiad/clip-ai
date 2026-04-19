@@ -2,6 +2,7 @@ import ffmpeg
 import cv2
 import os
 import mediapipe as mp
+from log import logger
 
 def analyze_video_layout(video_path: str):
     """Menggunakan MediaPipe untuk mendeteksi wajah/pose dan menentukan mode layout: 'crop', 'split', atau 'gta'."""
@@ -208,14 +209,14 @@ def process_clip(video_url: str, clip_metadata: dict, index: int, download_func)
     temp_landscape = f"temp/raw_{index}_{start_time}.mp4"
     final_vertical = f"temp/FINAL_{safe_title}.mp4"
 
-    print(f"[Tahap 1] Mengunduh bahan baku klip: {safe_title}...")
+    logger.info(f"[Tahap 1] Mengunduh bahan baku klip: {safe_title}...")
     downloaded_file = download_func(video_url, start_time, end_time, temp_landscape)
 
     if not downloaded_file or not os.path.exists(temp_landscape):
-        print(f"❌ Gagal mengunduh bahan untuk klip {index}.")
+        logger.error(f"❌ Gagal mengunduh bahan untuk klip {index}.")
         return
 
-    print(f"[Tahap 2] Auto-Captioning & MediaPipe AI Tracking...")
+    logger.info(f"[Tahap 2] Auto-Captioning & MediaPipe AI Tracking...")
     try:
         # INTELLIGENT CONTINUOUS LEARNING: Gunakan MediaPipe untuk deteksi fokus
         mode, smart_x = analyze_video_layout(temp_landscape)
@@ -223,7 +224,7 @@ def process_clip(video_url: str, clip_metadata: dict, index: int, download_func)
 
         # TAHAP 2A: Ekstrak audio dari segmen
         temp_audio = f"temp/audio_{index}.mp3"
-        print("  -> Ekstrak audio untuk transkripsi Whisper...")
+        logger.info("  -> Ekstrak audio untuk transkripsi Whisper...")
         (
             ffmpeg.input(temp_landscape)
             .output(temp_audio, acodec="libmp3lame", qscale=2)
@@ -231,7 +232,7 @@ def process_clip(video_url: str, clip_metadata: dict, index: int, download_func)
         )
 
         # TAHAP 2B: Generate SRT dari Audio menggunakan Whisper (dan dapatkan mute ranges untuk kata kasar)
-        print("  -> Generating timecoded subtitles via LLM & Censor checks...")
+        logger.info("  -> Generating timecoded subtitles via LLM & Censor checks...")
         from utils.captioning import generate_srt_from_audio
         temp_srt = f"temp/sub_{index}.srt"
         from utils.captioning import generate_srt_from_audio
@@ -242,13 +243,13 @@ def process_clip(video_url: str, clip_metadata: dict, index: int, download_func)
         broll_path = ""
         if broll_query:
             from utils.broll import download_broll
-            print(f"  -> Mendownload B-Roll untuk query: {broll_query}")
+            logger.info(f"  -> Mendownload B-Roll untuk query: {broll_query}")
             # The download_broll function handles network errors nicely and returns boolean
             if download_broll(broll_query, f"temp/broll_{index}.mp4"):
                 broll_path = f"temp/broll_{index}.mp4"
 
         # TAHAP 2C: Menyusun filter graph untuk 3 Varian (A/B Testing Generation)
-        print("  -> Mengeksekusi FFmpeg CPU Render (Complex Filter) untuk 3 Varian A/B Testing...")
+        logger.info("  -> Mengeksekusi FFmpeg CPU Render (Complex Filter) untuk 3 Varian A/B Testing...")
         srt_filter_path = temp_srt.replace('\\', '/')
         safe_title_display = raw_title.replace("'", "").replace(":", " ")
         style = "FontName=Arial,FontSize=20,PrimaryColour=&H00FFFF,OutlineColour=&H000000,BorderStyle=1,Outline=2,Shadow=0,MarginV=90"
@@ -256,7 +257,7 @@ def process_clip(video_url: str, clip_metadata: dict, index: int, download_func)
         # Deteksi Speaker Diarization secara dinamis jika mode split
         expr_0, expr_1 = "0", "0"
         if mode == "split" and isinstance(smart_x, list) and len(smart_x) == 2:
-            print("  -> Menjalankan FaceMesh Lip Tracking untuk Diarization...")
+            logger.info("  -> Menjalankan FaceMesh Lip Tracking untuk Diarization...")
             expr_0, expr_1 = detect_active_speaker(temp_landscape, smart_x)
 
         import random
@@ -267,7 +268,7 @@ def process_clip(video_url: str, clip_metadata: dict, index: int, download_func)
 
         for variant in ["var1", "var2", "var3"]:
             final_vertical = f"temp/FINAL_{safe_title}_{variant}.mp4"
-            print(f"  -> Rendering Varian: {variant}...")
+            logger.info(f"  -> Rendering Varian: {variant}...")
             
             # Setup Konfigurasi Varian
             v_style = style
@@ -389,9 +390,9 @@ def process_clip(video_url: str, clip_metadata: dict, index: int, download_func)
         if os.path.exists(temp_srt):
             os.remove(temp_srt)
 
-        print(f"✅ KLIP SELESAI DIRENDER DENGAN SMART CROP & CAPTIONS: {final_vertical}")
+        logger.info(f"✅ KLIP SELESAI DIRENDER DENGAN SMART CROP & CAPTIONS: {final_vertical}")
 
     except ffmpeg.Error as e:
-        print(f"❌ FFmpeg Error pada klip {index}: {e.stderr.decode('utf-8') if e.stderr else str(e)}")
+        logger.error(f"❌ FFmpeg Error pada klip {index}: {e.stderr.decode('utf-8') if e.stderr else str(e)}")
         
     return final_video_outputs

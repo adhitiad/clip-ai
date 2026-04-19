@@ -8,12 +8,15 @@ from pydantic import BaseModel, Field
 
 from core.agent import build_few_shot_prompt_context
 
+from log import logger
+
 # Inisialisasi API Keys
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 HF_TOKEN = os.environ.get("HUGGINGFACEHUB_API_TOKEN")
 
 # Standar Client Groq untuk Audio
 groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
+
 
 # --- SKEMA DATA LANGCHAIN ---
 class HookSchema(BaseModel):
@@ -24,10 +27,12 @@ class HookSchema(BaseModel):
         description="Deskripsi singkat + hashtag dalam Bahasa Indonesia"
     )
 
+
 # --- FASE 1: TRANSKRIPSI (GROQ WHISPER) ---
 def get_transcript(audio_path: str) -> str:
-    if not groq_client: return ""
-    print("1. Mentranskrip audio dengan Groq Whisper (Super Cepat)...")
+    if not groq_client:
+        return ""
+    logger.info("1. Mentranskrip audio dengan Groq Whisper (Super Cepat)...")
     with open(audio_path, "rb") as file:
         transcription = groq_client.audio.transcriptions.create(
             file=(audio_path, file.read()),
@@ -36,9 +41,12 @@ def get_transcript(audio_path: str) -> str:
         )
     return transcription.text
 
+
 # --- FASE 2: CARI HOOK (LANGCHAIN + GROQ LLM) ---
 def find_hooks_with_groq(transcript_text: str, user_query: str):
-    print(f"2. Menganalisis Hook untuk topik: '{user_query}' MENGGUNAKAN Continuous Learning...")
+    logger.info(
+        f"2. Menganalisis Hook untuk topik: '{user_query}' MENGGUNAKAN Continuous Learning..."
+    )
 
     llm = ChatGroq(model="llama3-70b-8192", temperature=0.7, api_key=GROQ_API_KEY)
     parser = JsonOutputParser(pydantic_object=HookSchema)
@@ -62,7 +70,7 @@ def find_hooks_with_groq(transcript_text: str, user_query: str):
         input_variables=["transcript", "user_query"],
         partial_variables={
             "format_instructions": parser.get_format_instructions(),
-            "learning_context": learning_context
+            "learning_context": learning_context,
         },
     )
 
@@ -72,12 +80,15 @@ def find_hooks_with_groq(transcript_text: str, user_query: str):
         hooks = chain.invoke({"transcript": transcript_text, "user_query": user_query})
         return hooks if isinstance(hooks, list) else [hooks]
     except Exception as e:
-        print(f"Error parsing Groq: {e}")
+        logger.error(f"Error parsing Groq: {e}")
         return []
+
 
 # --- FASE 3: TERJEMAHAN GLOBAL (LANGCHAIN + HUGGING FACE) ---
 def translate_metadata_with_hf(hooks: list):
-    print("3. Menerjemahkan ke Bahasa Inggris dengan Hugging Face (Pengganti DeepL)...")
+    logger.info(
+        "3. Menerjemahkan ke Bahasa Inggris dengan Hugging Face (Pengganti DeepL)..."
+    )
 
     # Menggunakan model spesifik penerjemah dari Hugging Face Hub (Gratis)
     hf_translator = HuggingFaceEndpoint(
@@ -85,6 +96,7 @@ def translate_metadata_with_hf(hooks: list):
         task="translation",
         max_new_tokens=512,
         huggingfacehub_api_token=HF_TOKEN,
+        temperature=0.2,
     )
 
     for hook in hooks:
@@ -98,16 +110,20 @@ def translate_metadata_with_hf(hooks: list):
             hook["title_en"] = eng_title.strip()
             hook["desc_en"] = eng_desc.strip()
         except Exception as e:
-            print(f"Format HF eror saat menerjemahkan: {str(e)[:50]}")
+            logger.error(f"Format HF eror saat menerjemahkan: {str(e)[:50]}")
             hook["title_en"] = hook["title_id"]
             hook["desc_en"] = hook["desc_id"]
 
     return hooks
 
+
 # --- FUNGSI UTAMA UNTUK DI PANGGIL OLEH FASTAPI ---
 def process_video_ai_logic(
-    audio_path: str, user_query: str, transcript_text: str = "",
-    use_ml_filter: bool = True, ml_threshold: float = 6.5,
+    audio_path: str,
+    user_query: str,
+    transcript_text: str = "",
+    use_ml_filter: bool = True,
+    ml_threshold: float = 6.5,
 ):
     """
     Pipeline AI utama:
@@ -125,12 +141,14 @@ def process_video_ai_logic(
     translated_metadata = translate_metadata_with_hf(hooks)
 
     from utils.ai_extras import calculate_viral_score
+
     scored_metadata = [calculate_viral_score(hook) for hook in translated_metadata]
 
     # ML Viral Filter — skip klip yang diprediksi tidak viral
     if use_ml_filter and scored_metadata:
         try:
             from services.viral_predictor import batch_predict_and_filter
+
             final_metadata = batch_predict_and_filter(
                 clips=scored_metadata,
                 audio_path=audio_path,
@@ -138,7 +156,7 @@ def process_video_ai_logic(
                 always_keep_best=1,
             )
         except Exception as e:
-            print(f"[ViralML] Filter error (skip filter): {e}")
+            logger.error(f"[ViralML] Filter error (skip filter): {e}")
             final_metadata = scored_metadata
     else:
         final_metadata = scored_metadata

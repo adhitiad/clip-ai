@@ -1,6 +1,7 @@
 import os
 import requests
 import random
+from log import logger
 
 def download_broll(keyword: str, output_path: str) -> bool:
     """
@@ -9,7 +10,7 @@ def download_broll(keyword: str, output_path: str) -> bool:
     """
     api_key = os.environ.get("PEXELS_API_KEY")
     if not api_key:
-        print("PEXELS_API_KEY tidak ada. B-Roll injection dilewati.")
+        logger.warning("PEXELS_API_KEY tidak ada. B-Roll injection dilewati.")
         return False
         
     headers = {"Authorization": api_key}
@@ -22,7 +23,7 @@ def download_broll(keyword: str, output_path: str) -> bool:
         data = response.json()
         
         if not data.get("videos"):
-            print(f"Tidak ada video Pexels ditemukan untuk keyword: {keyword}")
+            logger.warning(f"Tidak ada video Pexels ditemukan untuk keyword: {keyword}")
             return False
             
         # Pilih video acak dari hasil top 5
@@ -43,8 +44,8 @@ def download_broll(keyword: str, output_path: str) -> bool:
             for chunk in r_vid.iter_content(chunk_size=8192):
                 f.write(chunk)
                 
-        print(f"✅ Berhasil mengunduh B-Roll Pexels: {keyword}")
+        logger.info(f"✅ Berhasil mengunduh B-Roll Pexels: {keyword}")
         return True
     except Exception as e:
-        print(f"❌ Gagal mengunduh B-Roll: {e}")
+        logger.error(f"❌ Gagal mengunduh B-Roll: {e}")
         return False

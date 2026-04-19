@@ -9,9 +9,14 @@ Endpoint untuk:
 """
 
 import os
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
+from core.security import require_plan, check_credits, deduct_credit
+from core.auth import get_db
+from models.user import UserPlan, User
+from sqlalchemy.orm import Session
+from log import logger
 
 router = APIRouter(prefix="/niche", tags=["Niche & Discovery"])
 
@@ -62,6 +67,7 @@ async def get_trending(
 async def suggest_niches(
     geo: str = Query(default="id", description="Kode negara: 'id', 'us', atau 'global'"),
     max_trends: int = Query(default=20, ge=10, le=50),
+    current_user: User = Depends(require_plan(UserPlan.PREMIUM))
 ):
     """
     Ambil trending → analisis AI → kembalikan 5 niche terbaik beserta
@@ -92,6 +98,7 @@ async def find_videos(
     max_results: int = Query(default=10, ge=1, le=30),
     min_duration: int = Query(default=60, description="Durasi minimal video (detik)"),
     max_duration: int = Query(default=7200, description="Durasi maksimal video (detik)"),
+    current_user: User = Depends(require_plan(UserPlan.PREMIUM))
 ):
     """
     Cari video YouTube berdasarkan query menggunakan yt-dlp (tanpa API key).
@@ -120,7 +127,14 @@ async def find_videos(
 
 
 @router.post("/analyze-and-queue")
-async def analyze_and_queue(request: AutoQueueRequest):
+async def analyze_and_queue(
+    request: AutoQueueRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(check_credits)
+):
+    # Cek level plan tambahan (Require BUSINESS)
+    from core.security import require_plan
+    await require_plan(UserPlan.BUSINESS)(current_user)
     """
     🤖 Pipeline Otomatis Penuh:
       1. Ambil trending Google (geo yang dipilih)
@@ -144,13 +158,13 @@ async def analyze_and_queue(request: AutoQueueRequest):
         raise HTTPException(status_code=500, detail="GROQ_API_KEY belum dikonfigurasi.")
 
     # STEP 1: Google Trends
-    print(f"[Auto-Queue] Step 1: Ambil trending Google ({request.geo.upper()})...")
+    logger.info(f"[Auto-Queue] Step 1: Ambil trending Google ({request.geo.upper()})...")
     topics = get_trending_topics(geo=request.geo, max_items=20)
     if not topics:
         raise HTTPException(status_code=503, detail="Gagal ambil Google Trends.")
 
     # STEP 2: AI Niche Analysis
-    print(f"[Auto-Queue] Step 2: AI menganalisis {len(topics)} topik...")
+    logger.info(f"[Auto-Queue] Step 2: AI menganalisis {len(topics)} topik...")
     niches = analyze_niches_with_ai(topics, GROQ_API_KEY)
     if not niches:
         raise HTTPException(status_code=500, detail="AI gagal menganalisis niche.")
@@ -164,7 +178,7 @@ async def analyze_and_queue(request: AutoQueueRequest):
         search_query = niche_data.get("search_query", niche_data.get("niche", ""))
         niche_name   = niche_data.get("niche", "Unknown")
 
-        print(f"[Auto-Queue] Step 3: Cari video untuk niche '{niche_name}' (query: '{search_query}')...")
+        logger.info(f"[Auto-Queue] Step 3: Cari video untuk niche '{niche_name}' (query: '{search_query}')...")
         videos = search_youtube_videos_rss(
             query=search_query,
             max_results=request.videos_per_niche * 3,  # Ambil lebih untuk difilter
@@ -183,16 +197,16 @@ async def analyze_and_queue(request: AutoQueueRequest):
         videos_to_process = filtered_videos[: request.videos_per_niche]
 
         if not videos_to_process:
-            print(f"[Auto-Queue] ⚠️ Tidak ada video yang cocok untuk niche '{niche_name}'.")
+            logger.info(f"[Auto-Queue] ⚠️ Tidak ada video yang cocok untuk niche '{niche_name}'.")
             continue
 
         for video in videos_to_process:
             video_url = video["url"]
-            print(f"[Auto-Queue] Step 4: AI Pipeline untuk video: {video['title'][:60]}...")
+            logger.info(f"[Auto-Queue] Step 4: AI Pipeline untuk video: {video['title'][:60]}...")
 
             try:
                 # Coba ambil subtitle dulu (cepat)
-                transcript_text = check_and_get_youtube_subs(video_url, request.target_language)
+                transcript_text = check_and_get_youtube_subs(video_url, request.target_language) or ""
                 audio_path = ""
 
                 if not transcript_text:
@@ -208,7 +222,7 @@ async def analyze_and_queue(request: AutoQueueRequest):
                     os.remove(audio_path)
 
                 if not clips_metadata:
-                    print(f"  ⚠️ Tidak ada klip ditemukan dari video ini.")
+                    logger.info(f"  ⚠️ Tidak ada klip ditemukan dari video ini.")
                     continue
 
                 # Simpan ke DB
@@ -228,6 +242,9 @@ async def analyze_and_queue(request: AutoQueueRequest):
                     video_url, clips_metadata, request.target_language
                 )
 
+                # PEMOTONGAN KREDIT: 1 kredit per video yang berhasil di-queue
+                deduct_credit(db, current_user)
+
                 queued_tasks.append({
                     "niche": niche_name,
                     "video_title": video["title"],
@@ -237,7 +254,7 @@ async def analyze_and_queue(request: AutoQueueRequest):
                 })
 
             except Exception as e:
-                print(f"  ❌ Error saat memproses video {video_url}: {e}")
+                logger.error(f"  ❌ Error saat memproses video {video_url}: {e}")
                 continue
 
     return {

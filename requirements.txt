@@ -24,3 +24,7 @@ elevenlabs
 # Viral Score Predictor ML
 scikit-learn
 numpy
+# Security & Access Control
+passlib[bcrypt]
+python-jose[cryptography]
+python-multipart
