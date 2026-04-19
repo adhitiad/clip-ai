@@ -3,11 +3,24 @@ uvicorn
 langchain
 langchain-groq
 langchain-huggingface
+langchain-core
 groq
 requests
+feedparser
 opencv-python-headless
 ffmpeg-python
 mediapipe
 pydantic
 yt-dlp
 webvtt-py
+sqlalchemy
+psycopg2-binary
+pinecone-client
+celery
+redis
+# AI Voice-Over Dubbing
+gtts
+elevenlabs
+# Viral Score Predictor ML
+scikit-learn
+numpy
