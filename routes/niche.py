@@ -5,14 +5,19 @@ Endpoint untuk:
   GET  /niche/trending          → Ambil topik trending dari Google RSS
   GET  /niche/suggest           → Analisis niche terbaik via AI
   GET  /niche/find-videos       → Cari video YouTube berdasarkan niche/query
+  GET  /niche/search-web        → Cari berita/artikel web via Exa Search
   POST /niche/analyze-and-queue → Satu endpoint lengkap: trending → AI analysis → queue klip
 """
 
 import os
-from fastapi import APIRouter, Query, HTTPException, Depends
+from fastapi import APIRouter, Query, HTTPException, Depends, status
 from pydantic import BaseModel
-from typing import Optional
-from core.security import require_plan, check_credits, deduct_credit
+from core.security import (
+    require_plan,
+    check_credits,
+    consume_credits_atomic,
+    refund_credits_atomic,
+)
 from core.auth import get_db
 from models.user import UserPlan, User
 from sqlalchemy.orm import Session
@@ -126,6 +131,46 @@ async def find_videos(
     }
 
 
+@router.get("/search-web")
+async def search_web(
+    query: str = Query(..., description="Kata kunci berita/artikel web"),
+    num_results: int = Query(default=10, ge=1, le=20),
+    search_type: str = Query(default="auto", description="auto | fast | deep-lite | deep | deep-reasoning | instant"),
+    _current_user: User = Depends(require_plan(UserPlan.PREMIUM)),
+):
+    """
+    Cari berita/artikel web terbaru menggunakan Exa.
+    """
+    from utils.exa_search import search_news_with_exa
+
+    allowed_types = {"auto", "fast", "deep-lite", "deep", "deep-reasoning", "instant"}
+    if search_type not in allowed_types:
+        raise HTTPException(
+            status_code=422,
+            detail=f"search_type tidak valid. Gunakan salah satu: {', '.join(sorted(allowed_types))}",
+        )
+
+    try:
+        results = search_news_with_exa(
+            query=query,
+            num_results=num_results,
+            search_type=search_type,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        logger.error(f"[Exa] Gagal search web untuk query '{query}': {e}")
+        raise HTTPException(status_code=502, detail="Gagal mengambil hasil dari Exa Search.")
+
+    return {
+        "status": "success",
+        "query": query,
+        "search_type": search_type,
+        "total_found": len(results),
+        "results": results,
+    }
+
+
 @router.post("/analyze-and-queue")
 async def analyze_and_queue(
     request: AutoQueueRequest,
@@ -174,7 +219,10 @@ async def analyze_and_queue(
     # STEP 3 & 4: Per Niche → Cari Video → Queue
     queued_tasks = []
 
+    credits_exhausted = False
     for niche_data in selected_niches:
+        if credits_exhausted:
+            break
         search_query = niche_data.get("search_query", niche_data.get("niche", ""))
         niche_name   = niche_data.get("niche", "Unknown")
 
@@ -237,13 +285,22 @@ async def analyze_and_queue(
                     )
                     clip["clip_id"] = db_id
 
-                # Queue ke Celery
-                task = process_all_clips_task.delay(
-                    video_url, clips_metadata, request.target_language
-                )
+                if not consume_credits_atomic(db, current_user.id, amount=1):
+                    logger.warning("[Auto-Queue] Kredit habis. Menghentikan antrean video berikutnya.")
+                    credits_exhausted = True
+                    break
 
-                # PEMOTONGAN KREDIT: 1 kredit per video yang berhasil di-queue
-                deduct_credit(db, current_user)
+                try:
+                    # Queue ke Celery
+                    task = process_all_clips_task.delay(
+                        video_url, clips_metadata, request.target_language
+                    )
+                except Exception:
+                    refund_credits_atomic(db, current_user.id, amount=1)
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail="Gagal mengantre task render. Kredit sudah dikembalikan.",
+                    )
 
                 queued_tasks.append({
                     "niche": niche_name,
@@ -253,6 +310,8 @@ async def analyze_and_queue(
                     "task_id": task.id,
                 })
 
+            except HTTPException:
+                raise
             except Exception as e:
                 logger.error(f"  ❌ Error saat memproses video {video_url}: {e}")
                 continue

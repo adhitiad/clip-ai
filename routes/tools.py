@@ -10,6 +10,7 @@ Endpoint untuk fitur tambahan:
 """
 
 import os
+from pathlib import Path
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -17,6 +18,15 @@ from core.security import require_plan, require_role
 from models.user import UserPlan, UserRole, User
 
 router = APIRouter(prefix="/tools", tags=["AI Tools"])
+ALLOWED_DUB_ROOT = Path(os.getenv("DUB_ALLOWED_ROOT", "temp")).resolve()
+
+
+def _is_within_root(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
 
 
 # ─── SCHEMAS ──────────────────────────────────────────────────────────────────
@@ -65,15 +75,31 @@ async def dub_video(
 
     Return path ke video hasil dubbing.
     """
-    if not os.path.exists(request.video_path):
-        raise HTTPException(status_code=404, detail=f"File tidak ditemukan: {request.video_path}")
+    video_path = Path(request.video_path).expanduser().resolve()
+    if not video_path.exists():
+        raise HTTPException(status_code=404, detail=f"File tidak ditemukan: {video_path}")
+    if not _is_within_root(video_path, ALLOWED_DUB_ROOT):
+        raise HTTPException(
+            status_code=403,
+            detail=f"video_path harus berada di dalam direktori yang diizinkan: {ALLOWED_DUB_ROOT}",
+        )
+
+    output_path = ""
+    if request.output_path:
+        resolved_output = Path(request.output_path).expanduser().resolve()
+        if not _is_within_root(resolved_output, ALLOWED_DUB_ROOT):
+            raise HTTPException(
+                status_code=403,
+                detail=f"output_path harus berada di dalam direktori yang diizinkan: {ALLOWED_DUB_ROOT}",
+            )
+        output_path = str(resolved_output)
 
     from services.dubbing import dub_video_clip
 
     result_path = dub_video_clip(
-        video_path=request.video_path,
+        video_path=str(video_path),
         target_lang=request.target_lang,
-        output_path=request.output_path or "",
+        output_path=output_path,
         keep_original_audio=request.keep_original_audio,
     )
 
@@ -84,7 +110,7 @@ async def dub_video(
         "status": "success",
         "dubbed_video": result_path,
         "target_language": request.target_lang,
-        "original_video": request.video_path,
+        "original_video": str(video_path),
         "message": f"Dubbing ke '{request.target_lang}' berhasil.",
     }
 
@@ -214,6 +240,7 @@ async def record_feedback(
         clip_id=request.clip_id,
         actual_views=request.actual_views,
         actual_likes=request.actual_likes,
+        actual_shares=request.actual_shares,
     )
 
     return {

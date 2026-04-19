@@ -6,18 +6,21 @@ langchain-huggingface
 langchain-core
 groq
 requests
+exa-py
 feedparser
 opencv-python-headless
 ffmpeg-python
 mediapipe
 pydantic
+email-validator
 yt-dlp
 webvtt-py
 sqlalchemy
 psycopg2-binary
-pinecone-client
+pinecone
 celery
 redis
+python-dotenv
 # AI Voice-Over Dubbing
 gtts
 elevenlabs

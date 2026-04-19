@@ -11,6 +11,7 @@ class UserPlan(str, Enum):
 class UserRole(str, Enum):
     OWNER = "owner"
     STAFF = "staff"
+    USER = "user"
 
 class User(Base):
     __tablename__ = "users"
@@ -21,7 +22,7 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     
     plan = Column(SQLEnum(UserPlan), default=UserPlan.FREE)
-    role = Column(SQLEnum(UserRole), default=UserRole.OWNER)
+    role = Column(SQLEnum(UserRole), default=UserRole.USER)
     
     # Quota system
     credits = Column(Integer, default=3)  # Free start with 3

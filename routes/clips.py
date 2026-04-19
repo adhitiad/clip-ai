@@ -1,15 +1,14 @@
 import os
 
-from fastapi import FastAPI, BackgroundTasks, APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from typing import List
 
-from utils.youtube import download_video_segment, download_audio_only, check_and_get_youtube_subs
+from utils.youtube import download_audio_only, check_and_get_youtube_subs
 from core.ai_pipeline import process_video_ai_logic
-from services.video_engine import process_clip, crop_to_vertical_cpu
+from services.video_engine import process_clip
 from utils.db import save_clip, update_clip_score
-from core.auth import get_current_active_user, get_db
-from core.security import check_credits, deduct_credit
+from core.auth import get_db
+from core.security import check_credits, consume_credits_atomic, refund_credits_atomic
 from models.user import User
 from sqlalchemy.orm import Session
 from log import logger
@@ -27,8 +26,7 @@ class FeedbackRequest(BaseModel):
 
 @router.post("/generate-clips")
 async def generate_clips(
-    request: VideoRequest, 
-    background_tasks: BackgroundTasks,
+    request: VideoRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(check_credits)
 ):
@@ -49,6 +47,11 @@ async def generate_clips(
         user_query=request.user_query,
         transcript_text=transcript_text,
     )
+    if not clips_metadata:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Tidak ada klip yang ditemukan dari video tersebut.",
+        )
 
     # Bersihkan file audio jika ada
     if audio_path and os.path.exists(audio_path):
@@ -79,10 +82,19 @@ async def generate_clips(
 
     # 4. Antre tugas ke Celery
     from worker import process_all_clips_task
-    task = process_all_clips_task.delay(request.url, clips_metadata, request.target_language)
-
-    # 5. Potong kredit setelah berhasil di-queue
-    deduct_credit(db, current_user)
+    if not consume_credits_atomic(db, current_user.id, amount=1):
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="Kredit Anda habis. Silakan upgrade plan atau isi ulang kredit Anda.",
+        )
+    try:
+        task = process_all_clips_task.delay(request.url, clips_metadata, request.target_language)
+    except Exception:
+        refund_credits_atomic(db, current_user.id, amount=1)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Gagal mengantre task render. Kredit Anda sudah dikembalikan.",
+        )
 
     return {
         "status": "processing",

@@ -1,7 +1,7 @@
 import os
 
 from pinecone import Pinecone, ServerlessSpec
-from langchain_huggingface import HuggingFaceInferenceAPIEmbeddings
+from langchain_huggingface import HuggingFaceEndpointEmbeddings
 from log import logger
 
 # Inisialisasi API Keys
@@ -42,8 +42,8 @@ def init_vector_store():
         index = pc.Index(PINECONE_INDEX_NAME)
 
         # Inisialisasi HF Embeddings
-        embeddings = HuggingFaceInferenceAPIEmbeddings(
-            api_key=HF_TOKEN, model_name="sentence-transformers/all-MiniLM-L6-v2"
+        embeddings = HuggingFaceEndpointEmbeddings(
+            huggingfacehub_api_token=HF_TOKEN, model="sentence-transformers/all-MiniLM-L6-v2"
         )
 
         logger.info("✅ Pinecone Vector Store berhasil diinisialisasi.")

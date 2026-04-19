@@ -10,6 +10,7 @@ Ultimate AI Clipper adalah platform SaaS Backend berbasis AI yang dirancang untu
 ### 🎯 1. Niche Discovery & AI Analysis
 - **Google Trends RSS Engine**: Mengambil topik paling trending secara real-time tanpa perlu API Key berbayar.
 - **AI Niche Strategist**: Menggunakan **LLaMA 3 (via Groq)** untuk membedah tren menjadi ide konten, hook, dan query pencarian YouTube yang spesifik.
+- **Exa Web Search**: Cari berita dan artikel web terbaru beserta highlights untuk riset konten yang lebih tajam.
 
 ### 🤖 2. Autonomous Content Sourcing
 - **YouTube Intelligence**: Mencari video sumber berkualitas tinggi secara otomatis menggunakan metadata dan RSS kanal-kanal besar.
@@ -34,6 +35,7 @@ Ultimate AI Clipper adalah platform SaaS Backend berbasis AI yang dirancang untu
 
 - **Backend**: FastAPI (Python 3.13+)
 - **AI/LLM**: Groq (LLaMA 3), Hugging Face (Translation)
+- **Web Search**: Exa (`exa-py`)
 - **Computer Vision**: MediaPipe, OpenCV
 - **Audio/Video**: FFmpeg, Groq Whisper (Transkripsi)
 - **Database**: PostgreSQL (SQLAlchemy), Redis (Celery Broker)
@@ -67,6 +69,7 @@ pip install -r requirements.txt
 Buat file `.env` di root direktori:
 ```env
 GROQ_API_KEY=gsk_your_key_here
+EXA_API_KEY=exa_your_key_here
 ELEVENLABS_API_KEY=your_key_here
 PINECONE_API_KEY=your_key_here
 DATABASE_URL=postgresql://user:pass@localhost/db_name
@@ -90,6 +93,7 @@ celery -A worker worker --loglevel=info -P solo
 |--- |--- |
 | **Niche Discovery** | `GET /niche/suggest` |
 | **Video Search** | `GET /niche/find-videos` |
+| **Web Search (Exa)** | `GET /niche/search-web` |
 | **Auto Pipeline** | `POST /niche/analyze-and-queue` |
 | **AI Dubbing** | `POST /tools/dub` |
 | **Viral Prediction** | `POST /tools/viral-score` |

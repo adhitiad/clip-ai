@@ -15,8 +15,38 @@ from models.user import User
 
 # Base.metadata.create_all akan memantau model yang diimpor
 
+def _ensure_user_role_enum_value():
+    """
+    Menambahkan value role USER ke enum PostgreSQL lama jika belum ada.
+    Aman di-skip untuk DB non-PostgreSQL.
+    """
+    if engine.dialect.name != "postgresql":
+        return
+
+    try:
+        with engine.begin() as conn:
+            enum_rows = conn.exec_driver_sql(
+                """
+                SELECT t.typname, e.enumlabel
+                FROM pg_type t
+                JOIN pg_enum e ON e.enumtypid = t.oid
+                WHERE t.typname = 'userrole'
+                """
+            ).fetchall()
+            if not enum_rows:
+                return
+
+            labels = {row[1] for row in enum_rows}
+            # SQLAlchemy Enum Python biasanya menyimpan label uppercase (OWNER/STAFF/USER)
+            if "USER" not in labels:
+                conn.exec_driver_sql("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'USER'")
+                logger.info("✅ Enum userrole ditambah value USER.")
+    except Exception as e:
+        logger.warning(f"⚠️ Tidak bisa memastikan enum userrole memiliki USER: {e}")
+
 def init_db():
     try:
+        _ensure_user_role_enum_value()
         Base.metadata.create_all(bind=engine)
         logger.info("✅ Database PostgreSQL berhasil diinisialisasi via SQLAlchemy.")
     except Exception as e:
@@ -61,5 +91,16 @@ def get_clip_by_id(clip_id: int):
         if clip:
             return {"topic": clip.topic, "title": clip.title_en, "desc": clip.desc_en, "score": clip.score}
         return None
+    finally:
+        db.close()
+
+def get_top_clips(limit: int = 3):
+    db = SessionLocal()
+    try:
+        clips = db.query(Clip).order_by(Clip.score.desc()).limit(limit).all()
+        return [
+            {"topic": c.topic, "title": c.title_en, "desc": c.desc_en, "score": c.score}
+            for c in clips
+        ]
     finally:
         db.close()

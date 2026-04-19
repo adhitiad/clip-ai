@@ -3,6 +3,7 @@ from fastapi import Depends, HTTPException, status
 from core.auth import get_current_active_user, get_db
 from models.user import User, UserRole, UserPlan
 from sqlalchemy.orm import Session
+from sqlalchemy import and_, case
 from log import logger
 
 def require_role(allowed_roles: List[UserRole]):
@@ -34,25 +35,75 @@ def require_plan(min_plan: UserPlan):
     return plan_checker
 
 # Dependency untuk mengecek kecukupan kredit
-async def check_credits(current_user: User = Depends(get_current_active_user)):
-    if current_user.credits <= 0:
+async def check_credits(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    fresh_user = db.query(User).filter(User.id == current_user.id).first()
+    if not fresh_user or fresh_user.credits <= 0:
         logger.warning(f"Akses ditolak: User {current_user.email} kehabisan kredit.")
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail="Kredit Anda habis. Silakan upgrade plan atau isi ulang kredit Anda."
         )
-    return current_user
+    return fresh_user
 
-# Helper untuk memotong credit
-def deduct_credit(db: Session, user: User, amount: int = 1):
+
+def consume_credits_atomic(db: Session, user_id: int, amount: int = 1) -> bool:
+    if amount <= 0:
+        return True
     try:
-        user.credits -= amount
-        user.used_credits += amount
+        updated = (
+            db.query(User)
+            .filter(and_(User.id == user_id, User.credits >= amount))
+            .update(
+                {
+                    User.credits: User.credits - amount,
+                    User.used_credits: User.used_credits + amount,
+                },
+                synchronize_session=False,
+            )
+        )
+        if updated == 0:
+            db.rollback()
+            return False
         db.commit()
-        db.refresh(user)
-        logger.info(f"Kredit dipotong: {user.email} (-{amount}). Sisa: {user.credits}")
         return True
     except Exception as e:
         db.rollback()
-        logger.error(f"Gagal memotong kredit untuk {user.email}: {str(e)}")
+        logger.error(f"Gagal memotong kredit user_id={user_id}: {str(e)}")
         return False
+
+
+def refund_credits_atomic(db: Session, user_id: int, amount: int = 1) -> bool:
+    if amount <= 0:
+        return True
+    try:
+        updated = (
+            db.query(User)
+            .filter(User.id == user_id)
+            .update(
+                {
+                    User.credits: User.credits + amount,
+                    User.used_credits: case(
+                        (User.used_credits >= amount, User.used_credits - amount),
+                        else_=0,
+                    ),
+                },
+                synchronize_session=False,
+            )
+        )
+        if updated == 0:
+            db.rollback()
+            return False
+        db.commit()
+        return True
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Gagal refund kredit user_id={user_id}: {str(e)}")
+        return False
+
+
+# Backward compatible helper
+def deduct_credit(db: Session, user: User, amount: int = 1):
+    return consume_credits_atomic(db, user.id, amount)

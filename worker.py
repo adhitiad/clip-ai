@@ -1,5 +1,8 @@
 import os
 from celery import Celery
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Mengatur Redis sebagai Message Broker dan Backend Result
 # Secara default menunjuk ke localhost jika environment variable tidak diset

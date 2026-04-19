@@ -380,21 +380,62 @@ def batch_predict_and_filter(
     return should_render
 
 
-def record_actual_performance(clip_id: int, actual_views: int, actual_likes: int) -> None:
+def _score_from_real_performance(actual_views: int, actual_likes: int, actual_shares: int) -> float:
+    views = max(0, int(actual_views))
+    likes = max(0, int(actual_likes))
+    shares = max(0, int(actual_shares))
+
+    # Views mendorong base score
+    view_score = min(7.0, math.log10(views + 1) * 1.8)
+
+    # Engagement rate (likes + shares*2) menambah kualitas
+    if views > 0:
+        engagement_rate = (likes + (shares * 2)) / views
+    else:
+        engagement_rate = 0.0
+    engagement_score = min(3.0, engagement_rate * 60.0)
+
+    return max(1.0, min(10.0, 1.0 + view_score + engagement_score))
+
+
+def record_actual_performance(
+    clip_id: int,
+    actual_views: int,
+    actual_likes: int,
+    actual_shares: int = 0,
+) -> None:
     """
     Catat performa klip sesungguhnya untuk continuous learning.
     Dipanggil setelah post dipublish dan mendapat data engagement.
 
-    Skor actual = log10(views) normalized ke 1-10
+    Skor actual dibuat dari kombinasi views + engagement (likes/shares).
     """
-    # Normalize views ke 1-10 (viral >100k views = ~10)
-    if actual_views > 0:
-        score = min(10.0, math.log10(actual_views + 1) * 2.0)
-    else:
-        score = 1.0
+    from utils.db import SessionLocal
+    from models.clip import Clip
 
-    # Load features klip dari DB (simplified: pakai clip_id sebagai identifier)
-    # Dalam implementasi penuh, load dari DB berdasarkan clip_id
-    # Di sini kita simpan placeholder untuk di-match nanti
-    logger.info(f"[ViralML] Performa klip {clip_id}: {actual_views} views → skor {score:.1f}")
-    # TODO: integrasi dengan DB untuk load features lalu save_training_sample(features, score)
+    db = SessionLocal()
+    try:
+        clip = db.query(Clip).filter(Clip.id == clip_id).first()
+        if not clip:
+            logger.warning(f"[ViralML] Clip id={clip_id} tidak ditemukan. Feedback diabaikan.")
+            return
+
+        clip_metadata = {
+            "start_time": clip.start_time,
+            "end_time": clip.end_time,
+            "title_en": clip.title_en,
+            "desc_en": clip.desc_en,
+            "broll_query": "",
+        }
+        features = extract_features(clip_metadata, audio_path="")
+        score = _score_from_real_performance(actual_views, actual_likes, actual_shares)
+        save_training_sample(features, score)
+
+        logger.info(
+            f"[ViralML] Feedback clip={clip_id}: views={actual_views}, likes={actual_likes}, "
+            f"shares={actual_shares} -> score={score:.2f} (sample tersimpan)"
+        )
+    except Exception as e:
+        logger.error(f"[ViralML] Gagal merekam performa clip={clip_id}: {e}")
+    finally:
+        db.close()
