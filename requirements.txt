@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+langchain
+langchain-groq
+langchain-huggingface
+groq
+requests
+opencv-python-headless
+ffmpeg-python
+mediapipe
+pydantic
+yt-dlp
+webvtt-py

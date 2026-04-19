@@ -1,0 +1,67 @@
+import os
+import yt_dlp
+import webvtt
+
+
+def check_and_get_youtube_subs(video_url: str, lang: str = "id"):
+    """
+    Mencoba mengambil subtitle dari YouTube.
+    Mengembalikan teks transkrip jika berhasil, atau None jika gagal.
+    """
+    print(f"Mencari subtitle bawaan YouTube untuk bahasa: {lang}...")
+
+    # Konfigurasi yt-dlp KHUSUS untuk menarik subtitle tanpa mengunduh video
+    ydl_opts = {
+        "skip_download": True,  # JANGAN unduh videonya dulu
+        "writesubtitles": True,  # Ambil subtitle manual (jika ada)
+        "writeautomaticsub": True,  # Ambil auto-generated subtitle (jika tidak ada manual)
+        "subtitleslangs": [lang],  # Target bahasa (id = Indonesia, en = Inggris)
+        "subtitlesformat": "vtt",  # Format paling mudah di-parsing
+        "outtmpl": "temp/transcript_%(id)s.%(ext)s",  # Format nama file
+        "quiet": True,  # Matikan log panjang yt-dlp
+    }
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(video_url, download=True)
+            video_id = info.get("id")
+
+            # yt-dlp akan menyimpan file dengan nama lang.vtt (misal: id.vtt)
+            # Kita perlu mengecek apakah file tersebut benar-benar terunduh
+            vtt_path = f"temp/transcript_{video_id}.{lang}.vtt"
+
+            if os.path.exists(vtt_path):
+                print("Subtitle ditemukan! Memproses secara lokal...")
+                return parse_vtt_to_transcript(vtt_path)
+            else:
+                print("Tidak ada subtitle YouTube yang tersedia.")
+                return None
+
+    except Exception as e:
+        print(f"Error saat mengekstrak subtitle: {e}")
+        return None
+
+
+def parse_vtt_to_transcript(vtt_path: str) -> str:
+    """
+    Mengubah file .vtt mentah menjadi string bersih berformat:
+    [00:10] Teks...
+    [00:15] Teks selanjutnya...
+    """
+    transcript_lines = []
+
+    # Baca file VTT
+    for caption in webvtt.read(vtt_path):
+        # Format waktu VTT biasanya 00:01:23.450. Kita ambil HH:MM:SS saja.
+        start_time = caption.start.split(".")[0]
+        text = caption.text.strip().replace("\n", " ")
+
+        # Hindari memasukkan baris kosong
+        if text:
+            transcript_lines.append(f"[{start_time}] {text}")
+
+    # Hapus file .vtt setelah selesai dibaca agar folder temp/ tetap bersih
+    os.remove(vtt_path)
+
+    # Gabungkan menjadi satu string panjang yang siap dikirim ke LangChain
+    return "\n".join(transcript_lines)
