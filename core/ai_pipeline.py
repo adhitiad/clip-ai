@@ -104,3 +104,53 @@ def process_video_ai_logic(audio_path: str):
     final_metadata = translate_metadata_with_hf(hooks)
 
     return final_metadata
+
+
+# ... (kode sebelumnya tetap sama)
+
+
+def find_hooks_with_groq(transcript_text: str, user_query: str):
+    print(f"2. Menganalisis Hook untuk topik: '{user_query}'...")
+
+    llm = ChatGroq(model="llama3-70b-8192", temperature=0.7, api_key=GROQ_API_KEY)
+    parser = JsonOutputParser(pydantic_object=HookSchema)
+
+    # Prompt dinamis dengan {user_query}
+    prompt = PromptTemplate(
+        template="""Anda adalah ahli konten viral. Analisis transkrip video berikut.
+        Topik pencarian pengguna: "{user_query}"
+        
+        Temukan 2 momen paling menarik berdurasi 30-60 detik yang PALING RELEVAN dengan topik tersebut.
+        
+        Transkrip: {transcript}
+        
+        {format_instructions}
+        """,
+        input_variables=["transcript", "user_query"],
+        partial_variables={"format_instructions": parser.get_format_instructions()},
+    )
+
+    chain = prompt | llm | parser
+
+    try:
+        hooks = chain.invoke({"transcript": transcript_text, "user_query": user_query})
+        return hooks if isinstance(hooks, list) else [hooks]
+    except Exception as e:
+        print(f"Error parsing Groq: {e}")
+        return []
+
+
+# ... (fungsi translate_metadata_with_hf tetap sama)
+
+
+def process_video_ai_logic(
+    audio_path: str, user_query: str, transcript_text: str = None
+):
+    # Jika transcript_text sudah didapat dari YouTube VTT, lewati Groq Whisper
+    if not transcript_text:
+        transcript_text = get_transcript(audio_path)
+
+    hooks = find_hooks_with_groq(transcript_text, user_query)
+    final_metadata = translate_metadata_with_hf(hooks)
+
+    return final_metadata

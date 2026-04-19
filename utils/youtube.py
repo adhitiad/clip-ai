@@ -65,3 +65,61 @@ def parse_vtt_to_transcript(vtt_path: str) -> str:
 
     # Gabungkan menjadi satu string panjang yang siap dikirim ke LangChain
     return "\n".join(transcript_lines)
+
+
+def download_audio_only(video_url: str) -> str:
+    """
+    Mengunduh file audio saja dalam format m4a/mp3 untuk dikirim ke Groq Whisper.
+    """
+    print("Mengunduh audio dari YouTube...")
+
+    ydl_opts = {
+        "format": "bestaudio/best",
+        "outtmpl": "temp/audio_%(id)s.%(ext)s",
+        "postprocessors": [
+            {
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "m4a",
+                "preferredquality": "192",
+            }
+        ],
+        "quiet": True,
+    }
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(video_url, download=True)
+        # yt-dlp dengan postprocessor m4a akan mengubah ekstensi file
+        return f"temp/audio_{info['id']}.m4a"
+
+
+# Tambahkan fungsi ini di utils/youtube.py
+
+
+def download_video_segment(
+    video_url: str, start_time: int, end_time: int, output_path: str
+):
+    """
+    Mengunduh HANYA segmen waktu yang dibutuhkan menggunakan yt-dlp & FFmpeg.
+    Sangat hemat kuota dan waktu untuk video panjang.
+    """
+    print(f"Mengunduh segmen video dari detik ke-{start_time} hingga {end_time}...")
+
+    ydl_opts = {
+        "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        "outtmpl": output_path,
+        "external_downloader": "ffmpeg",
+        "external_downloader_args": {
+            # Memerintahkan FFmpeg untuk memotong langsung dari URL stream
+            "ffmpeg_i": ["-ss", str(start_time), "-to", str(end_time)]
+        },
+        "quiet": True,
+        "noprogress": True,
+    }
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([video_url])
+        return output_path
+    except Exception as e:
+        print(f"Error saat mengunduh segmen video: {e}")
+        return None
