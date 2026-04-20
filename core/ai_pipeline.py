@@ -5,8 +5,17 @@ from langchain_huggingface import HuggingFaceEndpoint
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from pydantic import BaseModel, Field
-from langchain_experimental.text_splitter import SemanticChunker
-from langchain_huggingface import HuggingFaceEmbeddings
+try:
+    from langchain_experimental.text_splitter import SemanticChunker
+    _HAS_SEMANTIC_CHUNKER = True
+except ImportError:
+    _HAS_SEMANTIC_CHUNKER = False
+
+try:
+    from langchain_huggingface import HuggingFaceEmbeddings
+    _HAS_HF_EMBEDDINGS = True
+except ImportError:
+    _HAS_HF_EMBEDDINGS = False
 
 from core.agent import build_few_shot_prompt_context
 
@@ -48,15 +57,28 @@ def get_transcript(audio_path: str) -> str:
 def semantic_group_transcript(transcript_text: str) -> list[str]:
     """
     Mengelompokkan transkrip berdasarkan kesatuan ide (Semantic Chunking).
+    Fallback ke RecursiveCharacterTextSplitter jika SemanticChunker tidak tersedia.
     """
     logger.info("  -> Melakukan Semantic Chunking pada transkrip...")
+    # Gunakan SemanticChunker jika modul tersedia
+    if _HAS_SEMANTIC_CHUNKER and _HAS_HF_EMBEDDINGS:
+        try:
+            embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+            text_splitter = SemanticChunker(embeddings)
+            docs = text_splitter.create_documents([transcript_text])
+            return [doc.page_content for doc in docs]
+        except Exception as e:
+            logger.warning(f"SemanticChunker gagal, fallback ke RecursiveCharacter: {e}")
+
+    # Fallback: RecursiveCharacterTextSplitter dari langchain_core
+    logger.info("  -> Menggunakan RecursiveCharacterTextSplitter sebagai fallback...")
     try:
-        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-        text_splitter = SemanticChunker(embeddings)
-        docs = text_splitter.create_documents([transcript_text])
+        from langchain_text_splitters import RecursiveCharacterTextSplitter
+        splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+        docs = splitter.create_documents([transcript_text])
         return [doc.page_content for doc in docs]
     except Exception as e:
-        logger.warning(f"Semantic Chunking gagal, fallback ke raw text: {e}")
+        logger.warning(f"RecursiveCharacterTextSplitter juga gagal, pakai raw text: {e}")
         return [transcript_text]
 
 

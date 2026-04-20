@@ -13,6 +13,7 @@ from routes.niche import router as niche_router
 from routes.tools import router as tools_router
 from routes.auth import router as auth_router
 from routes.dashboard import router as dashboard_router
+from routes.billing import router as billing_router
 from log import logger
 
 @asynccontextmanager
@@ -22,6 +23,16 @@ async def lifespan(_app: FastAPI):
 
     init_db()
     init_vector_store()
+    
+    # Check Redis Connectivity (SaaS/Celery requirement)
+    try:
+        import redis
+        r = redis.Redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
+        r.ping()
+        logger.info("Redis OK (Celery & SaaS Stats ready).")
+    except Exception as e:
+        logger.error(f"FATAL: Gagal koneksi Redis! Task async mungkin tidak jalan. Error: {e}")
+
     os.makedirs("temp", exist_ok=True)
     os.makedirs("models", exist_ok=True)
     logger.info("Startup init selesai (DB, vector store, temp/models).")
