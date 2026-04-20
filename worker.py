@@ -1,8 +1,10 @@
 import os
+from pathlib import Path
 from celery import Celery
 from dotenv import load_dotenv
 
-load_dotenv()
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(dotenv_path=BASE_DIR / ".env")
 
 # Mengatur Redis sebagai Message Broker dan Backend Result
 # Secara default menunjuk ke localhost jika environment variable tidak diset
@@ -16,13 +18,31 @@ celery_app = Celery(
 
 # Konfigurasi tambahan Celery (opsional)
 celery_app.conf.update(
-    task_serializer='json',
-    accept_content=['json'],  
-    result_serializer='json',
-    timezone='UTC',
+    task_serializer="json",
+    accept_content=["json"],
+    result_serializer="json",
+    timezone="UTC",
     enable_utc=True,
-    worker_prefetch_multiplier=1, # Penting untuk task rendering video berat agar tidak hoarding
-    task_acks_late=True
+    worker_prefetch_multiplier=1,  # Penting untuk task rendering video berat agar tidak hoarding
+    task_acks_late=True,
+    # Penting untuk Celery 5/6: task long-running dibatalkan saat koneksi broker putus.
+    worker_cancel_long_running_tasks_on_connection_loss=True,
+    # Stabilitas koneksi broker Redis
+    broker_connection_retry_on_startup=True,
+    broker_connection_max_retries=None,  # Retry tanpa batas
+    broker_connection_timeout=30,
+    broker_heartbeat=20,
+    redis_socket_keepalive=True,
+    redis_retry_on_timeout=True,
+    broker_transport_options={
+        # Hindari redelivery terlalu cepat untuk task render panjang
+        "visibility_timeout": 60 * 60 * 6,  # 6 jam
+        "socket_timeout": 30,
+        "socket_connect_timeout": 30,
+        "retry_on_timeout": True,
+        "socket_keepalive": True,
+        "health_check_interval": 30,
+    },
 )
 
 @celery_app.task(bind=True, name="process_all_clips_task")

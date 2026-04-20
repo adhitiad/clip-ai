@@ -28,5 +28,11 @@ class User(Base):
     credits = Column(Integer, default=3)  # Free start with 3
     used_credits = Column(Integer, default=0)
     
+    # SaaS Fields
+    referral_code = Column(String, unique=True, index=True)
+    referred_by_id = Column(Integer, nullable=True) # ID user yang mengajak
+    stripe_customer_id = Column(String, unique=True, index=True, nullable=True)
+    subscription_status = Column(String, default="inactive") # active, past_due, canceled
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

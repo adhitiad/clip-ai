@@ -282,6 +282,7 @@ async def analyze_and_queue(
                         end_time=clip.get("end_time", 0),
                         title_en=clip.get("title_en", clip.get("title_id", "")),
                         desc_en=clip.get("desc_en", clip.get("desc_id", "")),
+                        user_id=current_user.id,
                     )
                     clip["clip_id"] = db_id
 

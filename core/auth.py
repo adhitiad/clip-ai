@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
@@ -10,7 +11,8 @@ from dotenv import load_dotenv
 from utils.db import SessionLocal
 from models.user import User
 
-load_dotenv()
+BASE_DIR = Path(__file__).resolve().parents[1]
+load_dotenv(dotenv_path=BASE_DIR / ".env")
 
 # Configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "").strip()

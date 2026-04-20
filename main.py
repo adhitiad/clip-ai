@@ -1,15 +1,18 @@
 import os
 import uvicorn
+from pathlib import Path
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from dotenv import load_dotenv
 
-load_dotenv()
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(dotenv_path=BASE_DIR / ".env")
 
 from routes.clips import router as clips_router
 from routes.niche import router as niche_router
 from routes.tools import router as tools_router
 from routes.auth import router as auth_router
+from routes.dashboard import router as dashboard_router
 from log import logger
 
 @asynccontextmanager
@@ -33,6 +36,8 @@ app.include_router(auth_router)
 app.include_router(clips_router)
 app.include_router(niche_router)
 app.include_router(tools_router)
+app.include_router(dashboard_router)
+app.include_router(billing_router)
 
 if __name__ == "__main__":
     logger.info("AI Clipper Backend Server dimulai http://localhost:%s ...", PORT)

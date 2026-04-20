@@ -50,3 +50,38 @@ def generate_srt_from_audio(audio_path: str, srt_output_path: str):
             srt_file.write(f"{text}\n\n")
     
     return srt_output_path, mute_ranges
+
+def get_word_level_transcription(audio_path: str) -> list:
+    """
+    Simulasi word-level transcription dari segmen Whisper.
+    Memecah segmen teks menjadi kata-kata dengan estimasi waktu linear.
+    """
+    with open(audio_path, "rb") as file:
+        transcription = client.audio.transcriptions.create(
+            file=(audio_path, file.read()),
+            model="whisper-large-v3",
+            response_format="verbose_json",
+        )
+    
+    data = transcription
+    if hasattr(data, 'model_dump'):
+        data = data.model_dump()
+        
+    segments = data.get("segments", [])
+    all_words = []
+    
+    for seg in segments:
+        text = seg["text"].strip().split()
+        if not text: continue
+        
+        duration = seg["end"] - seg["start"]
+        word_duration = duration / len(text)
+        
+        for i, word in enumerate(text):
+            all_words.append({
+                "text": word,
+                "start": seg["start"] + (i * word_duration),
+                "end": seg["start"] + ((i + 1) * word_duration)
+            })
+            
+    return all_words

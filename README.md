@@ -97,6 +97,14 @@ celery -A worker worker --loglevel=info -P solo
 | **Auto Pipeline** | `POST /niche/analyze-and-queue` |
 | **AI Dubbing** | `POST /tools/dub` |
 | **Viral Prediction** | `POST /tools/viral-score` |
+| **Dashboard (Role-based)** | `GET /dashboard/overview` |
+| **User Growth (Admin Ops)** | `GET /dashboard/user-growth` |
+| **History (Role-based)** | `GET /dashboard/history` |
+| **User Profile (Self)** | `GET /dashboard/profile` |
+| **User Settings (Self)** | `PATCH /dashboard/profile-settings` |
+| **User Profile by ID (Owner/Staff)** | `GET /dashboard/users/{user_id}/profile` |
+| **Owner Profile Settings** | `GET/PATCH /dashboard/owner/profile-settings` |
+| **Owner Monitor** | `GET /dashboard/owner/monitor` |
 
 ---
 
@@ -104,6 +112,7 @@ celery -A worker worker --loglevel=info -P solo
 - [x] Integrasi Google Trends RSS
 - [x] Viral Score Predictor ML
 - [x] Auto Dubbing (ElevenLabs)
+- [x] Backend Dashboard API (Role-based OWNER/STAFF/USER)
 - [ ] Auto-Publisher ke TikTok/YouTube API
 - [ ] Next.js Modern Dashboard
 - [ ] Stripe/Midtrans Credit System

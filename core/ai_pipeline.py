@@ -5,6 +5,8 @@ from langchain_huggingface import HuggingFaceEndpoint
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from pydantic import BaseModel, Field
+from langchain_experimental.text_splitter import SemanticChunker
+from langchain_huggingface import HuggingFaceEmbeddings
 
 from core.agent import build_few_shot_prompt_context
 
@@ -42,6 +44,22 @@ def get_transcript(audio_path: str) -> str:
     return transcription.text
 
 
+# 2. Semantic Chunking untuk Alur Cerita
+def semantic_group_transcript(transcript_text: str) -> list[str]:
+    """
+    Mengelompokkan transkrip berdasarkan kesatuan ide (Semantic Chunking).
+    """
+    logger.info("  -> Melakukan Semantic Chunking pada transkrip...")
+    try:
+        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        text_splitter = SemanticChunker(embeddings)
+        docs = text_splitter.create_documents([transcript_text])
+        return [doc.page_content for doc in docs]
+    except Exception as e:
+        logger.warning(f"Semantic Chunking gagal, fallback ke raw text: {e}")
+        return [transcript_text]
+
+
 # --- FASE 2: CARI HOOK (LANGCHAIN + GROQ LLM) ---
 def find_hooks_with_groq(transcript_text: str, user_query: str):
     logger.info(
@@ -77,8 +95,25 @@ def find_hooks_with_groq(transcript_text: str, user_query: str):
     chain = prompt | llm | parser
 
     try:
-        hooks = chain.invoke({"transcript": transcript_text, "user_query": user_query})
-        return hooks if isinstance(hooks, list) else [hooks]
+        # 2. Sisipkan semantic chunks jika teks terlalu panjang
+        chunks = semantic_group_transcript(transcript_text)
+        processed_transcript = "\n---\n".join(chunks)
+
+        hooks = chain.invoke({"transcript": processed_transcript, "user_query": user_query})
+        hooks_list = hooks if isinstance(hooks, list) else [hooks]
+
+        # 9. Automated A/B Testing untuk Hook sebelum Render
+        from services.viral_predictor import select_best_hook_variant
+        for hook in hooks_list:
+            variants = [
+                hook["title_id"],
+                f"Tunggu sampai akhir: {hook['title_id']}",
+                f"POV: {hook['title_id']}"
+            ]
+            best_variant = select_best_hook_variant(hook, variants)
+            hook["title_id"] = best_variant["title_en"] # Update dengan yang terbaik
+            
+        return hooks_list
     except Exception as e:
         logger.error(f"Error parsing Groq: {e}")
         return []
@@ -136,6 +171,12 @@ def process_video_ai_logic(
     # Jika transcript_text sudah didapat dari YouTube VTT, lewati Groq Whisper
     if not transcript_text and audio_path:
         transcript_text = get_transcript(audio_path)
+
+    # 10. Cost-Benefit ML Pre-check
+    from services.viral_predictor import pre_check_viral_potential
+    if not pre_check_viral_potential(transcript_text):
+        logger.warning("[ViralML] Video ini diprediksi punya potensi rendah. Menghentikan pipeline untuk hemat token.")
+        return []
 
     hooks = find_hooks_with_groq(transcript_text, user_query)
     translated_metadata = translate_metadata_with_hf(hooks)

@@ -16,6 +16,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     username: str = None
+    referral_code: str = None # Code from the person who invited
 
 class Token(BaseModel):
     access_token: str
@@ -46,15 +47,31 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
     if db_user:
         raise HTTPException(status_code=400, detail="Email sudah terdaftar")
     
+    import uuid
+    ref_code = str(uuid.uuid4())[:8].upper()
+    
+    # Check if this user was referred by someone
+    referred_by_user = None
+    if user_in.referral_code:
+        referred_by_user = db.query(User).filter(User.referral_code == user_in.referral_code).first()
+
     new_user = User(
         email=user_in.email,
         username=user_in.username,
         hashed_password=get_password_hash(user_in.password),
         plan=UserPlan.FREE,
         role=UserRole.USER,
-        credits=3
+        credits=3,
+        referral_code=ref_code,
+        referred_by_id=referred_by_user.id if referred_by_user else None
     )
     db.add(new_user)
+    
+    # Reward the referrer instantly
+    if referred_by_user:
+        referred_by_user.credits += 2 # SaaS Bonus Referral
+        logger.info(f"👑 SaaS Bonus: {referred_by_user.email} got 2 credits for referring {new_user.email}")
+        
     db.commit()
     db.refresh(new_user)
     

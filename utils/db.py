@@ -11,6 +11,8 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 from models.clip import Clip
+from models.owner_setting import OwnerSetting
+from models.user_setting import UserSetting
 from models.user import User
 
 # Base.metadata.create_all akan memantau model yang diimpor
@@ -44,15 +46,54 @@ def _ensure_user_role_enum_value():
     except Exception as e:
         logger.warning(f"⚠️ Tidak bisa memastikan enum userrole memiliki USER: {e}")
 
+
+def _ensure_clip_user_id_column():
+    """
+    Menambahkan kolom clips.user_id pada database lama jika belum ada.
+    """
+    if engine.dialect.name != "postgresql":
+        return
+    try:
+        with engine.begin() as conn:
+            table_exists = conn.exec_driver_sql(
+                "SELECT to_regclass('public.clips')"
+            ).scalar()
+            if not table_exists:
+                return
+
+            col_exists = conn.exec_driver_sql(
+                """
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_name = 'clips' AND column_name = 'user_id'
+                """
+            ).fetchone()
+            if not col_exists:
+                conn.exec_driver_sql("ALTER TABLE clips ADD COLUMN user_id INTEGER")
+                conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_clips_user_id ON clips (user_id)")
+                logger.info("✅ Kolom clips.user_id berhasil ditambahkan.")
+    except Exception as e:
+        logger.warning(f"⚠️ Tidak bisa memastikan kolom clips.user_id: {e}")
+
+
 def init_db():
     try:
         _ensure_user_role_enum_value()
+        _ensure_clip_user_id_column()
         Base.metadata.create_all(bind=engine)
         logger.info("✅ Database PostgreSQL berhasil diinisialisasi via SQLAlchemy.")
     except Exception as e:
         logger.error(f"⚠️ Gagal inisialisasi PostgreSQL (pastikan DATABASE_URL benar dan server menyala): {e}")
 
-def save_clip(video_url: str, topic: str, start_time: int, end_time: int, title_en: str, desc_en: str) -> int:
+def save_clip(
+    video_url: str,
+    topic: str,
+    start_time: int,
+    end_time: int,
+    title_en: str,
+    desc_en: str,
+    user_id: int | None = None,
+) -> int:
     db = SessionLocal()
     try:
         new_clip = Clip(
@@ -62,7 +103,8 @@ def save_clip(video_url: str, topic: str, start_time: int, end_time: int, title_
             end_time=end_time,
             title_en=title_en,
             desc_en=desc_en,
-            score=0
+            score=0,
+            user_id=user_id,
         )
         db.add(new_clip)
         db.commit()

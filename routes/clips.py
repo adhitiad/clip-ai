@@ -67,7 +67,8 @@ async def generate_clips(
             start_time=clip.get("start_time", 0),
             end_time=clip.get("end_time", 0),
             title_en=clip.get("title_en", clip.get("title_id", "")),  # Fallback
-            desc_en=clip.get("desc_en", clip.get("desc_id", ""))
+            desc_en=clip.get("desc_en", clip.get("desc_id", "")),
+            user_id=current_user.id,
         )
         clip["clip_id"] = db_id
         

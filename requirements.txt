@@ -24,9 +24,19 @@ python-dotenv
 # AI Voice-Over Dubbing
 gtts
 elevenlabs
-# Viral Score Predictor ML
+# Viral Score# AI/ML & Vision
+librosa
 scikit-learn
+langchain-experimental
+sentence-transformers
+torch
+torchvision
 numpy
+pandas
+matplotlib==3.8.3
+
+# Core Tools
+huggingface-hub
 # Security & Access Control
 passlib[bcrypt]
 python-jose[cryptography]
