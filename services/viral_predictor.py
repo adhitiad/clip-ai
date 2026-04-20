@@ -23,6 +23,7 @@ Jika model belum dilatih (cold start):
   - Setiap klip yang dirender memperkaya training data
 """
 
+import functools
 import os
 import json
 import math
@@ -79,6 +80,7 @@ def _duration_score(seconds: float) -> float:
     return math.exp(-0.5 * ((seconds - 50) / 25) ** 2)
 
 
+@functools.lru_cache(maxsize=32)
 def _audio_energy(audio_path: str) -> float:
     """
     Hitung energi audio rata-rata (RMS) dari file audio.
