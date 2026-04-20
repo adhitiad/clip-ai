@@ -3,6 +3,10 @@ from sqlalchemy import Column, Integer, String, Enum as SQLEnum, DateTime, func
 from utils.db import Base
 
 class UserPlan(str, Enum):
+    # ── Plan internal (non-subscriber) ──────────────────
+    OWNER = "owner"          # Pemilik platform — akses tak terbatas
+    STAFF = "staff"          # Pengelola — akses pengelolaan
+    # ── Plan pelanggan ───────────────────────────────────
     FREE = "free"
     PREMIUM = "premium"
     BUSINESS = "business"
@@ -21,8 +25,8 @@ class User(Base):
     username = Column(String, unique=True, index=True, nullable=True)
     hashed_password = Column(String, nullable=False)
     
-    plan = Column(SQLEnum(UserPlan), default=UserPlan.FREE)
-    role = Column(SQLEnum(UserRole), default=UserRole.USER)
+    plan = Column(SQLEnum(UserPlan, name="userplan", values_callable=lambda x: [e.value for e in x]), default=UserPlan.FREE)
+    role = Column(SQLEnum(UserRole, name="userrole", values_callable=lambda x: [e.value for e in x]), default=UserRole.USER)
     
     # Quota system
     credits = Column(Integer, default=3)  # Free start with 3

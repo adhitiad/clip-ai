@@ -17,34 +17,106 @@ from models.user import User
 
 # Base.metadata.create_all akan memantau model yang diimpor
 
-def _ensure_user_role_enum_value():
+def _ensure_enum_values():
     """
-    Menambahkan value role USER ke enum PostgreSQL lama jika belum ada.
+    Memastikan semua value enum (userrole & userplan) tersedia di PostgreSQL.
     Aman di-skip untuk DB non-PostgreSQL.
     """
     if engine.dialect.name != "postgresql":
         return
 
+    # { nama_enum_pg : [nilai yang harus ada] }
+    required_values: dict[str, list[str]] = {
+        "userrole": ["owner", "staff", "user"],
+        "user_role_type": ["owner", "staff", "user"], # Fallback name
+        "userplan": ["owner", "staff", "free", "premium", "business", "enterprise"],
+        "user_plan_type": ["owner", "staff", "free", "premium", "business", "enterprise"], # Fallback name
+    }
+
     try:
         with engine.begin() as conn:
-            enum_rows = conn.exec_driver_sql(
-                """
-                SELECT t.typname, e.enumlabel
-                FROM pg_type t
-                JOIN pg_enum e ON e.enumtypid = t.oid
-                WHERE t.typname = 'userrole'
-                """
-            ).fetchall()
-            if not enum_rows:
-                return
+            for enum_name, values in required_values.items():
+                # Cek apakah tipe data enum ini ada di database
+                type_exists = conn.exec_driver_sql(
+                    "SELECT 1 FROM pg_type WHERE typname = %(ename)s",
+                    {"ename": enum_name},
+                ).fetchone()
+                
+                if not type_exists:
+                    continue
 
-            labels = {row[1] for row in enum_rows}
-            # SQLAlchemy Enum Python biasanya menyimpan label uppercase (OWNER/STAFF/USER)
-            if "USER" not in labels:
-                conn.exec_driver_sql("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'USER'")
-                logger.info("✅ Enum userrole ditambah value USER.")
+                rows = conn.exec_driver_sql(
+                    """
+                    SELECT e.enumlabel
+                    FROM pg_type t
+                    JOIN pg_enum e ON e.enumtypid = t.oid
+                    WHERE t.typname = %(ename)s
+                    """,
+                    {"ename": enum_name},
+                ).fetchall()
+
+                existing = {r[0] for r in rows}
+                for val in values:
+                    if val not in existing:
+                        # DDL tidak bisa diparameterkan — nilai dikontrol internal, aman
+                        conn.exec_driver_sql(
+                            f"ALTER TYPE {enum_name} ADD VALUE IF NOT EXISTS '{val}'"
+                        )
+                        logger.info(f"✅ Enum '{enum_name}' ditambah value '{val}'.")
     except Exception as e:
-        logger.warning(f"⚠️ Tidak bisa memastikan enum userrole memiliki USER: {e}")
+        logger.warning(f"⚠️ Tidak bisa memastikan nilai enum '{enum_name}': {e}")
+
+
+def _ensure_users_columns():
+    """
+    Menambahkan kolom-kolom baru di tabel users yang mungkin belum ada
+    (untuk database lama yang dibuat sebelum kolom ini ditambahkan ke model).
+    """
+    if engine.dialect.name != "postgresql":
+        return
+
+    # Daftar kolom yang harus ada: (nama, definisi SQL)
+    required_columns = [
+        ("username",             "VARCHAR UNIQUE"),
+        ("hashed_password",      "VARCHAR"),
+        ("plan",                 "userplan DEFAULT 'free'"),
+        ("role",                 "userrole DEFAULT 'user'"),
+        ("referral_code",        "VARCHAR UNIQUE"),
+        ("referred_by_id",       "INTEGER"),
+        ("stripe_customer_id",   "VARCHAR UNIQUE"),
+        ("subscription_status",  "VARCHAR DEFAULT 'inactive'"),
+        ("used_credits",         "INTEGER DEFAULT 0"),
+        ("credits",              "INTEGER DEFAULT 3"),
+        ("created_at",           "TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP"),
+        ("updated_at",           "TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP"),
+    ]
+
+    try:
+        with engine.begin() as conn:
+            table_exists = conn.exec_driver_sql(
+                "SELECT to_regclass('public.users')"
+            ).scalar()
+            if not table_exists:
+                return  # tabel belum ada, create_all akan membuatnya
+
+            for col_name, col_def in required_columns:
+                col_exists = conn.exec_driver_sql(
+                    """
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema = 'public' 
+                      AND table_name = 'users' 
+                      AND column_name = %(col)s
+                    """,
+                    {"col": col_name},
+                ).fetchone()
+
+                if not col_exists:
+                    conn.exec_driver_sql(
+                        f"ALTER TABLE public.users ADD COLUMN IF NOT EXISTS {col_name} {col_def}"
+                    )
+                    logger.info(f"✅ Kolom users.{col_name} berhasil ditambahkan.")
+    except Exception as e:
+        logger.warning(f"⚠️ Tidak bisa memastikan kolom users: {e}")
 
 
 def _ensure_clip_user_id_column():
@@ -63,8 +135,7 @@ def _ensure_clip_user_id_column():
 
             col_exists = conn.exec_driver_sql(
                 """
-                SELECT 1
-                FROM information_schema.columns
+                SELECT 1 FROM information_schema.columns
                 WHERE table_name = 'clips' AND column_name = 'user_id'
                 """
             ).fetchone()
@@ -78,12 +149,14 @@ def _ensure_clip_user_id_column():
 
 def init_db():
     try:
-        _ensure_user_role_enum_value()
+        _ensure_enum_values()
+        _ensure_users_columns()
         _ensure_clip_user_id_column()
         Base.metadata.create_all(bind=engine)
         logger.info("✅ Database PostgreSQL berhasil diinisialisasi via SQLAlchemy.")
     except Exception as e:
         logger.error(f"⚠️ Gagal inisialisasi PostgreSQL (pastikan DATABASE_URL benar dan server menyala): {e}")
+
 
 def save_clip(
     video_url: str,
