@@ -148,10 +148,14 @@ celery -A worker:celery_app worker --loglevel=info -P solo
 
 ---
 
+## Features Frontend
+
+di [clip-aif](https://github.com/Adhitiad/clip-aif)
+
 ## 🛡️ Lisensi
 
-Ultimate AI Clipper adalah software komersial. Seluruh hak cipta dilindungi.
+Proyek ini dilisensikan di bawah **MIT License**. Lihat file [LICENSE](https://github.com/Adhitiad/clip-ai/blob/main/LICENSE) untuk detail selengkapnya.
 
 ---
 
-_Dibuat dengan ❤️ oleh Antigravity AI Team._
+_Dibuat oleh [Adhitiad](https://github.com/Adhitiad)._
