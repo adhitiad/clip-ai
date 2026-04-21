@@ -14,6 +14,8 @@ from routes.tools import router as tools_router
 from routes.auth import router as auth_router
 from routes.dashboard import router as dashboard_router
 from routes.billing import router as billing_router
+from routes.finance import router as finance_router
+from routes.investment import router as investment_router
 from log import logger
 
 @asynccontextmanager
@@ -49,6 +51,8 @@ app.include_router(niche_router)
 app.include_router(tools_router)
 app.include_router(dashboard_router)
 app.include_router(billing_router)
+app.include_router(finance_router)
+app.include_router(investment_router)
 
 if __name__ == "__main__":
     logger.info("AI Clipper Backend Server dimulai http://localhost:%s ...", PORT)

@@ -46,10 +46,21 @@ Ultimate AI Clipper adalah platform SaaS Backend berbasis AI yang dirancang untu
 
 ## 🚀 Memulai (Setup Cepat)
 
-### 1. Prasyarat
-- Python 3.11+
-- FFmpeg terinstall di sistem
-- Redis server (untuk Celery)
+### 1. Prasyarat Sistem (Penting untuk Windows)
+
+- **Python 3.11+**
+- **FFmpeg & FFprobe**: 
+    1. Download binary FFmpeg untuk Windows dari [gyan.dev](https://www.gyan.dev/ffmpeg/builds/).
+    2. Ekstrak dan tambahkan folder `bin` (yang berisi `ffmpeg.exe` dan `ffprobe.exe`) ke **Environment Variables (PATH)** sistem Anda.
+    3. Verifikasi dengan perintah `ffmpeg -version` di Command Prompt.
+- **PostgreSQL Server**:
+    1. Instal [PostgreSQL](https://www.postgresql.org/download/windows/).
+    2. Pastikan service berjalan.
+    3. Buat database secara manual:
+       ```sql
+       CREATE DATABASE clipper_db;
+       ```
+- **Redis Server**: Diperlukan sebagai message broker untuk Celery. Bisa dijalankan via Docker atau WSL.
 
 ### 2. Instalasi
 ```bash
@@ -72,9 +83,13 @@ GROQ_API_KEY=gsk_your_key_here
 EXA_API_KEY=exa_your_key_here
 ELEVENLABS_API_KEY=your_key_here
 PINECONE_API_KEY=your_key_here
-DATABASE_URL=postgresql://user:pass@localhost/db_name
+DATABASE_URL=postgresql://postgres:password@localhost:5432/clipper_db
+PEXELS_API_KEY=your_pexels_key
 PORT=8000
 ```
+
+> [!CAUTION]
+> **Pexels API Key** diperlukan agar fitur B-Roll (footage Minecraft/GTA) dapat diunduh. Tanpa ini, video rintisan akan gagal diproduksi.
 
 ### 4. Jalankan Aplikasi
 ```bash
@@ -82,8 +97,11 @@ PORT=8000
 python main.py
 
 # Terminal 2: Jalankan Celery Worker (untuk rendering)
-celery -A worker worker --loglevel=info -P solo
+celery -A worker:celery_app worker --loglevel=info -P solo
 ```
+
+> [!NOTE]
+> Di Windows, Celery harus dijalankan dengan argumen `-P solo`. Argumen ini memastikan kestabilan proses rendering di Windows, namun berarti worker hanya akan memproses **satu tugas rendering** secara sekuensial (satu per satu).
 
 ---
 

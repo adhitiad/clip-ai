@@ -1,5 +1,6 @@
 from enum import Enum
 from sqlalchemy import Column, Integer, String, Enum as SQLEnum, DateTime, func
+from sqlalchemy.orm import relationship
 from utils.db import Base
 
 class UserPlan(str, Enum):
@@ -40,3 +41,6 @@ class User(Base):
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    investments = relationship("InvestorShare", back_populates="user")

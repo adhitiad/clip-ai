@@ -4,7 +4,7 @@ import os
 import mediapipe as mp
 import random
 from log import logger
-from moviepy import TextClip, CompositeVideoClip, VideoFileClip
+from moviepy import TextClip, CompositeVideoClip, VideoFileClip, AudioFileClip
 from services.viral_predictor import select_best_hook_variant
 
 

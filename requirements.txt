@@ -19,6 +19,7 @@ sqlalchemy
 psycopg2-binary
 pinecone
 celery
+flower
 redis
 python-dotenv
 # AI Voice-Over Dubbing
@@ -37,6 +38,8 @@ matplotlib==3.8.3
 
 # Core Tools
 huggingface-hub
+moviepy
+bcrypt
 # Security & Access Control
 passlib[bcrypt]
 python-jose[cryptography]

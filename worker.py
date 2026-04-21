@@ -66,7 +66,7 @@ def process_all_clips_task(self, video_url: str, clips_metadata: list, lang: str
         # Proses rendering
         variant_paths = process_clip(video_url, clip, index+1, download_video_segment)
         if variant_paths:
-            all_rendered_files.extend(variant_paths)
+            all_rendered_files.append(variant_paths)
             
         # Update progress jika perlu (bisa ditangkap oleh API nanti)
         self.update_state(state='PROGRESS', meta={'current': index+1, 'total': total_clips})

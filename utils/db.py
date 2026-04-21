@@ -14,6 +14,8 @@ from models.clip import Clip
 from models.owner_setting import OwnerSetting
 from models.user_setting import UserSetting
 from models.user import User
+from models.finance import Transaction
+from models.investment import AppValuation, InvestorShare
 
 # Base.metadata.create_all akan memantau model yang diimpor
 
