@@ -1,0 +1,3 @@
+## 2026-04-22 - [Backend Performance: Avoid Loading Entire Tables in Memory]
+**Learning:** In SQLAlchemy, fetching rows without explicit filters before calling `.all()` (such as `db.query(Model).all()`) pulls the entire table into Python's memory. Even if only specific columns are queried (like `User.created_at`), a growing dataset will cause a memory leak and slow down the endpoint as the application scales. This is a common performance anti-pattern.
+**Action:** Always apply explicit filters (`.filter()`) in SQLAlchemy *before* calling `.all()`. For time-series endpoints, calculate the bounding date/datetime and apply it to the query to limit the payload specifically to what is needed for the requested timeframe.
