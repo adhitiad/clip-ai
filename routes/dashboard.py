@@ -238,12 +238,16 @@ async def dashboard_user_growth(
     _current_user: User = Depends(require_role([UserRole.OWNER, UserRole.STAFF])),
 ):
     start_date = datetime.utcnow().date() - timedelta(days=days - 1)
+    # Convert date to datetime for precise database filtering to prevent returning out of range users
+    start_datetime = datetime.combine(start_date, datetime.min.time())
+
     buckets = {}
     for i in range(days):
         d = start_date + timedelta(days=i)
         buckets[d.isoformat()] = 0
 
-    rows = db.query(User.created_at).filter(User.created_at.isnot(None)).all()
+    # ⚡ Bolt: Apply filter directly to query before `.all()` to avoid fetching entire users table
+    rows = db.query(User.created_at).filter(User.created_at >= start_datetime).all()
     for (created_at,) in rows:
         date_key = created_at.date().isoformat()
         if date_key in buckets:
