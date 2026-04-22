@@ -243,7 +243,14 @@ async def dashboard_user_growth(
         d = start_date + timedelta(days=i)
         buckets[d.isoformat()] = 0
 
-    rows = db.query(User.created_at).filter(User.created_at.isnot(None)).all()
+    # ⚡ Bolt Optimization: Filter memory load by date bounds to avoid pulling the entire user table
+    # This prevents OOM errors as the database grows and limits results to only what we need for the chart
+    end_date = start_date + timedelta(days=days)
+    rows = db.query(User.created_at).filter(
+        User.created_at.isnot(None),
+        User.created_at >= start_date,
+        User.created_at < end_date
+    ).all()
     for (created_at,) in rows:
         date_key = created_at.date().isoformat()
         if date_key in buckets:
