@@ -243,7 +243,12 @@ async def dashboard_user_growth(
         d = start_date + timedelta(days=i)
         buckets[d.isoformat()] = 0
 
-    rows = db.query(User.created_at).filter(User.created_at.isnot(None)).all()
+    # ⚡ Bolt Optimization: Filter by date directly in the DB instead of fetching all records
+    # Impact: Reduces memory usage from O(N) to O(filtered_days) and significantly lowers DB load.
+    rows = db.query(User.created_at).filter(
+        User.created_at.isnot(None),
+        User.created_at >= datetime.combine(start_date, datetime.min.time())
+    ).all()
     for (created_at,) in rows:
         date_key = created_at.date().isoformat()
         if date_key in buckets:
