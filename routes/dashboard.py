@@ -237,13 +237,22 @@ async def dashboard_user_growth(
     db: Session = Depends(get_db),
     _current_user: User = Depends(require_role([UserRole.OWNER, UserRole.STAFF])),
 ):
+    # ⚡ Bolt Optimization: Calculate start_datetime to filter at DB level instead of loading all users
+    # We use a datetime object mapped from start_date to perform a correct comparison in SQL
     start_date = datetime.utcnow().date() - timedelta(days=days - 1)
+    start_datetime = datetime.combine(start_date, datetime.min.time())
+
     buckets = {}
     for i in range(days):
         d = start_date + timedelta(days=i)
         buckets[d.isoformat()] = 0
 
-    rows = db.query(User.created_at).filter(User.created_at.isnot(None)).all()
+    # ⚡ Bolt Optimization: Filter by start_datetime in DB, eliminating N+1 memory issues.
+    rows = db.query(User.created_at).filter(
+        User.created_at.isnot(None),
+        User.created_at >= start_datetime
+    ).all()
+
     for (created_at,) in rows:
         date_key = created_at.date().isoformat()
         if date_key in buckets:
