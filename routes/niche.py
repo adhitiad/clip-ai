@@ -196,7 +196,7 @@ async def analyze_and_queue(
     )
     from core.ai_pipeline import process_video_ai_logic
     from utils.youtube import check_and_get_youtube_subs, download_audio_only
-    from utils.db import save_clip
+    from utils.db import save_clip, save_clips_bulk
     from worker import process_all_clips_task
 
     if not GROQ_API_KEY:
@@ -273,17 +273,23 @@ async def analyze_and_queue(
                     logger.info(f"  ⚠️ Tidak ada klip ditemukan dari video ini.")
                     continue
 
-                # Simpan ke DB
+                # ⚡ Bolt Optimization: Simpan ke DB secara bulk
+                clips_bulk_data = []
                 for clip in clips_metadata:
-                    db_id = save_clip(
-                        video_url=video_url,
-                        topic=f"[{niche_name}] {request.user_query}",
-                        start_time=clip.get("start_time", 0),
-                        end_time=clip.get("end_time", 0),
-                        title_en=clip.get("title_en", clip.get("title_id", "")),
-                        desc_en=clip.get("desc_en", clip.get("desc_id", "")),
-                        user_id=current_user.id,
-                    )
+                    clips_bulk_data.append({
+                        "video_url": video_url,
+                        "topic": f"[{niche_name}] {request.user_query}",
+                        "start_time": clip.get("start_time", 0),
+                        "end_time": clip.get("end_time", 0),
+                        "title_en": clip.get("title_en", clip.get("title_id", "")),
+                        "desc_en": clip.get("desc_en", clip.get("desc_id", "")),
+                    })
+
+                db_ids = save_clips_bulk(clips_bulk_data, user_id=current_user.id)
+
+                # Update clip_id di metadata
+                for i, clip in enumerate(clips_metadata):
+                    db_id = db_ids[i] if i < len(db_ids) else 0
                     clip["clip_id"] = db_id
 
                 if not consume_credits_atomic(db, current_user.id, amount=1):

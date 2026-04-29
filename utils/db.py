@@ -160,6 +160,46 @@ def init_db():
         logger.error(f"⚠️ Gagal inisialisasi PostgreSQL (pastikan DATABASE_URL benar dan server menyala): {e}")
 
 
+def save_clips_bulk(clips_data: list[dict], user_id: int | None = None) -> list[int]:
+    """
+    ⚡ Bolt Optimization: Bulk Insert Clips
+    Instead of inserting clips one by one which causes N+1 query problems,
+    we use add_all + flush to insert them all in a single transaction.
+    The flush operation populates the auto-incremented primary keys
+    without fully committing yet, which is much faster than refreshing each object.
+    Expected impact: Significantly reduced DB roundtrips during clip generation.
+    """
+    if not clips_data:
+        return []
+
+    db = SessionLocal()
+    try:
+        new_clips = []
+        for data in clips_data:
+            clip = Clip(
+                video_url=data.get("video_url"),
+                topic=data.get("topic"),
+                start_time=data.get("start_time"),
+                end_time=data.get("end_time"),
+                title_en=data.get("title_en"),
+                desc_en=data.get("desc_en"),
+                score=0,
+                user_id=user_id,
+            )
+            new_clips.append(clip)
+
+        db.add_all(new_clips)
+        db.flush() # This populates the ID fields before committing
+        ids = [clip.id for clip in new_clips]
+        db.commit()
+        return ids
+    except Exception as e:
+        logger.error(f"Error saving to db in bulk: {e}")
+        db.rollback()
+        return []
+    finally:
+        db.close()
+
 def save_clip(
     video_url: str,
     topic: str,

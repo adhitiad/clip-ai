@@ -1,0 +1,3 @@
+## 2026-04-29 - [Bulk Insertion with Primary Key Retrieval]
+**Learning:** To optimize bulk insertions in SQLAlchemy while retrieving primary keys, use `db.add_all(objects)` followed by `db.flush()` before `db.commit()`. This approach is significantly more efficient than individual inserts or refreshing objects individually after commit. It avoids the N+1 queries issue without losing track of newly generated IDs needed for subsequent processes (like vector embeddings).
+**Action:** Use this pattern whenever multiple related records need to be inserted simultaneously and their auto-generated primary keys are required immediately in the same transaction.

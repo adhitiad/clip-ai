@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from utils.youtube import download_audio_only, check_and_get_youtube_subs
 from core.ai_pipeline import process_video_ai_logic
 from services.video_engine import process_clip
-from utils.db import save_clip, update_clip_score
+from utils.db import save_clip, save_clips_bulk, update_clip_score
 from core.auth import get_db
 from core.security import check_credits, consume_credits_atomic, refund_credits_atomic
 from models.user import User
@@ -59,17 +59,24 @@ async def generate_clips(
 
     from services.vector_store import upsert_clip_vector
     
-    # Simpan konteks (Continuous Learning) untuk setiap klip ke Database
+    # ⚡ Bolt Optimization: Simpan konteks secara bulk (menghindari N+1 queries)
+    clips_bulk_data = []
     for clip in clips_metadata:
-        db_id = save_clip(
-            video_url=request.url,
-            topic=request.user_query,
-            start_time=clip.get("start_time", 0),
-            end_time=clip.get("end_time", 0),
-            title_en=clip.get("title_en", clip.get("title_id", "")),  # Fallback
-            desc_en=clip.get("desc_en", clip.get("desc_id", "")),
-            user_id=current_user.id,
-        )
+        clips_bulk_data.append({
+            "video_url": request.url,
+            "topic": request.user_query,
+            "start_time": clip.get("start_time", 0),
+            "end_time": clip.get("end_time", 0),
+            "title_en": clip.get("title_en", clip.get("title_id", "")),
+            "desc_en": clip.get("desc_en", clip.get("desc_id", "")),
+        })
+
+    # Simpan sekaligus ke database
+    db_ids = save_clips_bulk(clips_bulk_data, user_id=current_user.id)
+
+    # Update metadata dan simpan ke Pinecone
+    for i, clip in enumerate(clips_metadata):
+        db_id = db_ids[i] if i < len(db_ids) else 0
         clip["clip_id"] = db_id
         
         # Simpan vektor kemiripan ke Pinecone
