@@ -71,6 +71,39 @@ def upsert_clip_vector(clip_id: int, topic: str, title: str, desc: str):
         logger.error(f"Gagal upsert vektor: {e}")
 
 
+def upsert_clips_vectors_bulk(clips_data: list[dict]):
+    """
+    Simpan banyak vektor sekaligus ke Pinecone (Bulk Upsert).
+    """
+    if not index or not embeddings:
+        return
+
+    try:
+        texts_to_embed = []
+        for clip in clips_data:
+            topic = clip.get("topic", "")
+            title = clip.get("title", "")
+            desc = clip.get("desc", "")
+            texts_to_embed.append(f"Topik: {topic}. Judul: {title}. Deskripsi: {desc}")
+
+        # Batch embedding calculation
+        vectors = embeddings.embed_documents(texts_to_embed)
+
+        pinecone_vectors = []
+        for i, clip in enumerate(clips_data):
+            clip_id = clip.get("clip_id")
+            pinecone_vectors.append({
+                "id": str(clip_id),
+                "values": vectors[i],
+                "metadata": {"clip_id": clip_id, "topic": clip.get("topic")},
+            })
+
+        index.upsert(vectors=pinecone_vectors)
+        logger.info(f"✅ Berhasil upsert {len(pinecone_vectors)} vektor ke Pinecone.")
+    except Exception as e:
+        logger.error(f"Gagal bulk upsert vektor: {e}")
+
+
 def search_similar_clips(query: str, top_k=3):
     if not index or not embeddings:
         return []

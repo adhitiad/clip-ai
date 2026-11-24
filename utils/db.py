@@ -221,3 +221,37 @@ def get_top_clips(limit: int = 3):
         ]
     finally:
         db.close()
+
+def save_clips_bulk(clips_data: list[dict]) -> list[int]:
+    """
+    Simpan banyak klip sekaligus ke database (Bulk Insert).
+    Menggunakan session.add_all() dan flush() untuk performa lebih baik.
+    """
+    db = SessionLocal()
+    try:
+        new_clips = []
+        for data in clips_data:
+            clip = Clip(
+                video_url=data.get("video_url"),
+                topic=data.get("topic"),
+                start_time=data.get("start_time", 0),
+                end_time=data.get("end_time", 0),
+                title_en=data.get("title_en", ""),
+                desc_en=data.get("desc_en", ""),
+                score=0,
+                user_id=data.get("user_id"),
+            )
+            new_clips.append(clip)
+
+        db.add_all(new_clips)
+        db.flush()  # Mengirim ke DB agar ID terisi tapi belum commit
+
+        clip_ids = [c.id for c in new_clips]
+        db.commit()
+        return clip_ids
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error bulk saving to db: {e}")
+        return []
+    finally:
+        db.close()

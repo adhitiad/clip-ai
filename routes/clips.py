@@ -57,29 +57,42 @@ async def generate_clips(
     if audio_path and os.path.exists(audio_path):
         os.remove(audio_path)
 
-    from services.vector_store import upsert_clip_vector
+    from services.vector_store import upsert_clips_vectors_bulk
+    from utils.db import save_clips_bulk
     
-    # Simpan konteks (Continuous Learning) untuk setiap klip ke Database
+    # Batch data untuk penyimpanan database
+    clips_to_save = []
     for clip in clips_metadata:
-        db_id = save_clip(
-            video_url=request.url,
-            topic=request.user_query,
-            start_time=clip.get("start_time", 0),
-            end_time=clip.get("end_time", 0),
-            title_en=clip.get("title_en", clip.get("title_id", "")),  # Fallback
-            desc_en=clip.get("desc_en", clip.get("desc_id", "")),
-            user_id=current_user.id,
-        )
+        clips_to_save.append({
+            "video_url": request.url,
+            "topic": request.user_query,
+            "start_time": clip.get("start_time", 0),
+            "end_time": clip.get("end_time", 0),
+            "title_en": clip.get("title_en", clip.get("title_id", "")),
+            "desc_en": clip.get("desc_en", clip.get("desc_id", "")),
+            "user_id": current_user.id,
+        })
+
+    # 1. Simpan ke Database (Bulk)
+    db_ids = save_clips_bulk(clips_to_save)
+
+    # 2. Update metadata & Siapkan batch untuk Pinecone
+    vectors_to_upsert = []
+    for i, clip in enumerate(clips_metadata):
+        db_id = db_ids[i] if i < len(db_ids) else 0
         clip["clip_id"] = db_id
         
-        # Simpan vektor kemiripan ke Pinecone
         if db_id > 0:
-            upsert_clip_vector(
-                clip_id=db_id, 
-                topic=request.user_query, 
-                title=clip.get("title_en", clip.get("title_id", "")), 
-                desc=clip.get("desc_en", clip.get("desc_id", ""))
-            )
+            vectors_to_upsert.append({
+                "clip_id": db_id,
+                "topic": request.user_query,
+                "title": clip.get("title_en", clip.get("title_id", "")),
+                "desc": clip.get("desc_en", clip.get("desc_id", ""))
+            })
+
+    # 3. Simpan ke Pinecone (Bulk)
+    if vectors_to_upsert:
+        upsert_clips_vectors_bulk(vectors_to_upsert)
 
     # 4. Antre tugas ke Celery
     from worker import process_all_clips_task
