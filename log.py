@@ -8,12 +8,13 @@ def _configure_console_encoding():
     """
     Hindari UnicodeEncodeError di Windows console (cp1252) saat log mengandung emoji/unicode.
     """
-    for stream in (sys.stdout, sys.stderr):
-        try:
-            stream.reconfigure(encoding="utf-8", errors="replace")
-        except Exception:
-            # Tidak semua environment mendukung reconfigure (mis. redirected stream)
-            pass
+    if sys.platform == "win32":
+        for stream in (sys.stdout, sys.stderr):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                # Tidak semua environment mendukung reconfigure (mis. redirected stream)
+                pass
 
 # Pastikan folder logs ada
 LOG_DIR = "logs"
