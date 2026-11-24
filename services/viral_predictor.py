@@ -27,10 +27,7 @@ import os
 import json
 import math
 import pickle
-import hashlib
 import numpy as np
-from pathlib import Path
-from typing import Optional, Union
 from log import logger
 
 # New Imports for Advanced AI
@@ -178,8 +175,9 @@ def _face_emotion_score(video_path: str, max_frames=5) -> float:
         frame_count = 0
         while cap.isOpened() and frame_count < max_frames:
             ret, frame = cap.read()
-            if not ret: break
-            
+            if not ret:
+                break
+
             # Ambil frame setiap detiknya (asumsi video 30fps)
             cap.set(cv2.CAP_PROP_POS_FRAMES, frame_count * 30)
             
@@ -376,8 +374,9 @@ def pre_check_viral_potential(text_summary: str) -> bool:
     # Deteksi 'Hook' intrinsik dalam teks (pertanyaan, angka, janji)
     hook_indicators = ["?", "!", "rahasia", "bagaimana", "cara", "tips"]
     for ind in hook_indicators:
-        if ind in text: score += 1.0
-        
+        if ind in text:
+            score += 1.0
+
     logger.info(f"[ViralML] Pre-check potential score: {score:.1f}")
     return score >= 3.0 # Threshold rendah untuk pre-filter
 
