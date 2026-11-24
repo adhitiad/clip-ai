@@ -1,0 +1,4 @@
+pathlib
+celery
+dotenv
+pydantic
