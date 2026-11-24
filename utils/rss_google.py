@@ -7,14 +7,8 @@ YouTube RSS Feed untuk keperluan:
   2. Mencari video YouTube berdasarkan niche
 """
 
-import re
 import time
-import random
 import feedparser
-import requests
-import xml.etree.ElementTree as ET
-from urllib.parse import quote_plus, urlencode
-from typing import Optional
 import sys
 
 # Fix encoding untuk Windows CMD
@@ -75,21 +69,6 @@ def _fetch_rss_feedparser(url: str) -> list:
     except Exception as e:
         print(f"[RSS] RSS fetch error dari {url}: {e}")
         return []
-
-
-def _fetch_rss_xml(url: str, timeout: int = 10) -> Optional[ET.Element]:
-    """Ambil dan parse XML secara manual (fallback)."""
-    try:
-        resp = requests.get(url, headers=HEADERS, timeout=timeout)
-        resp.raise_for_status()
-        root = ET.fromstring(resp.content)
-        return root
-    except requests.RequestException as e:
-        print(f"[RSS] Gagal fetch {url}: {e}")
-        return None
-    except ET.ParseError as e:
-        print(f"[RSS] XML parse error dari {url}: {e}")
-        return None
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
