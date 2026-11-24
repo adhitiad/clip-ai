@@ -18,13 +18,6 @@ from typing import Optional
 import sys
 from log import logger
 
-# Fix encoding untuk Windows CMD
-if sys.platform == "win32":
-    try:
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    except AttributeError:
-        pass
-
 # ─── CONFIG ───────────────────────────────────────────────────────────────────
 # Google Trends RSS (per negara, bisa diubah)
 GOOGLE_TRENDS_URLS = {
