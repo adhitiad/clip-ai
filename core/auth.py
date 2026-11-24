@@ -10,7 +10,7 @@ from utils.db import SessionLocal
 from models.user import User
 
 # Configuration
-SECRET_KEY = os.getenv("SECRET_KEY", "super-secret-antigravity-key-change-me")
+SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 1 week
 

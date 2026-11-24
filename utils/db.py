@@ -4,7 +4,7 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 from log import logger
 
 # Menggunakan koneksi PostgreSQL
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://user:password@localhost/clip_ai")
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 engine = create_engine(DATABASE_URL, echo=False)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
