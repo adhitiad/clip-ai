@@ -1,0 +1,31 @@
+{
+  "bundler": "vite",
+  "projectName": "frontend",
+  "mode": "file-router",
+  "typescript": true,
+  "packageManager": "bun",
+  "includeExamples": false,
+  "tailwind": true,
+  "projectPreset": "default",
+  "routerOnly": false,
+  "addOnOptions": {},
+  "git": false,
+  "install": true,
+  "intent": true,
+  "version": 1,
+  "framework": "react",
+  "chosenAddOns": [
+    "eslint",
+    "ai",
+    "form",
+    "db",
+    "compiler",
+    "tanstack-query",
+    "store",
+    "better-auth",
+    "table",
+    "t3env",
+    "shadcn",
+    "paraglide"
+  ]
+}

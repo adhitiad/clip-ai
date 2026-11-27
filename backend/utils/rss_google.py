@@ -7,15 +7,13 @@ YouTube RSS Feed untuk keperluan:
   2. Mencari video YouTube berdasarkan niche
 """
 
-import re
 import time
-import random
+import xml.etree.ElementTree as ET
+from typing import Optional
+
 import feedparser
 import requests
-import xml.etree.ElementTree as ET
-from urllib.parse import quote_plus, urlencode
-from typing import Optional
-import sys
+
 from backend.log import logger
 
 # ─── CONFIG ───────────────────────────────────────────────────────────────────
@@ -134,19 +132,18 @@ def get_trending_topics(geo: str = "id", max_items: int = 20) -> list[dict]:
     return results
 
 
-def analyze_niches_with_ai(
-    trending_topics: list[dict], groq_api_key: str
-) -> list[dict]:
+def analyze_niches_with_ai(trending_topics: list[dict]) -> list[dict]:
     """
-    Gunakan AI (Groq/LLaMA) untuk menganalisis topik trending dan merekomendasikan
-    niche konten TikTok/YouTube Shorts yang cocok.
+    Gunakan LLM LangChain (provider bebas) untuk menganalisis topik trending
+    dan merekomendasikan niche konten TikTok/YouTube Shorts yang cocok.
 
     Returns:
         list of dict: [{"niche": str, "topic": str, "hook_idea": str, "score": int}]
     """
-    from langchain_groq import ChatGroq
-    from langchain_core.prompts import PromptTemplate
     from langchain_core.output_parsers import JsonOutputParser
+    from langchain_core.prompts import PromptTemplate
+
+    from backend.services.model_discovery import get_text_model
 
     if not trending_topics:
         return []
@@ -159,7 +156,7 @@ def analyze_niches_with_ai(
         ]
     )
 
-    llm = ChatGroq(api_key=groq_api_key, model_name="llama3-8b-8192", temperature=0.7)
+    llm = get_text_model(temperature=0.7)
     parser = JsonOutputParser()
 
     prompt = PromptTemplate.from_template(

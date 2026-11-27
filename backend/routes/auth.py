@@ -1,30 +1,41 @@
-import os
-from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
-from datetime import timedelta
-from backend.core.auth import (
-    get_db,
-    get_password_hash,
-    verify_password,
-    create_access_token,
-    ACCESS_TOKEN_EXPIRE_MINUTES,
-    get_current_active_user,
-)
-from backend.core.security import require_role
-from backend.models.user import User, UserPlan, UserRole
-from pydantic import BaseModel, EmailStr
-from backend.log import logger
+"""Autentikasi Google-only — tanpa password."""
 
+import os
+import secrets
+from datetime import timedelta
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token
+from pydantic import BaseModel, ConfigDict, EmailStr
+from sqlalchemy.orm import Session
+
+from backend.core.auth import (
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    create_access_token,
+    get_current_active_user,
+    get_db,
+)
+from backend.core.env import load_env
+from backend.log import logger
+from backend.models.user import User
+
+load_env("backend")
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+GOOGLE_PASSWORD_SENTINEL = "GOOGLE_OAUTH"
+OWNER_EMAILS = {
+    email.strip().lower()
+    for email in os.getenv("OWNER_EMAILS", "").split(",")
+    if email.strip()
+}
 
-class UserCreate(BaseModel):
-    email: EmailStr
-    password: str
-    username: str = None
-    referral_code: str = None  # Code from the person who invited
+
+class GoogleLoginRequest(BaseModel):
+    id_token: str
+    referral_code: Optional[str] = None
 
 
 class Token(BaseModel):
@@ -37,142 +48,77 @@ class BootstrapOwnerRequest(BaseModel):
     bootstrap_token: str
 
 
-class RoleUpdateRequest(BaseModel):
-    email: EmailStr
-    role: UserRole
-
-
 class UserOut(BaseModel):
     email: str
     username: Optional[str]
-    plan: UserPlan
-    role: UserRole
-    credits: int
-    used_credits: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
-@router.post("/register", response_model=Token)
-def register(user_in: UserCreate, db: Session = Depends(get_db)):
-    db_user = db.query(User).filter(User.email == user_in.email).first()
-    if db_user:
-        raise HTTPException(status_code=400, detail="Email sudah terdaftar")
-
-    import uuid
-
-    ref_code = str(uuid.uuid4())[:8].upper()
-
-    # Check if this user was referred by someone
-    referred_by_user = None
-    if user_in.referral_code:
-        referred_by_user = (
-            db.query(User).filter(User.referral_code == user_in.referral_code).first()
-        )
-
-    new_user = User(
-        email=user_in.email,
-        username=user_in.username,
-        hashed_password=get_password_hash(user_in.password),
-        plan=UserPlan.FREE,
-        role=UserRole.USER,
-        credits=3,
-        referral_code=ref_code,
-        referred_by_id=referred_by_user.id if referred_by_user else None,
-    )
-    db.add(new_user)
-
-    # Reward the referrer instantly
-    if referred_by_user:
-        referred_by_user.credits += 2  # SaaS Bonus Referral
-        logger.info(
-            f"👑 SaaS Bonus: {referred_by_user.email} got 2 credits for referring {new_user.email}"
-        )
-
-    db.commit()
-    db.refresh(new_user)
-
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": new_user.email}, expires_delta=access_token_expires
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
-
-
-@router.post("/bootstrap-owner", response_model=UserOut)
-def bootstrap_owner(request: BootstrapOwnerRequest, db: Session = Depends(get_db)):
-    expected_token = os.getenv("OWNER_BOOTSTRAP_TOKEN", "").strip()
-    if not expected_token:
+def verify_google_token(credential: str) -> dict:
+    """Verifikasi Google ID token; kembalikan klaim (email, sub, ...)."""
+    if not GOOGLE_CLIENT_ID:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="OWNER_BOOTSTRAP_TOKEN belum dikonfigurasi.",
+            detail="GOOGLE_CLIENT_ID belum dikonfigurasi.",
         )
-    if request.bootstrap_token != expected_token:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Bootstrap token tidak valid."
+    try:
+        claims = id_token.verify_oauth2_token(
+            credential, google_requests.Request(), GOOGLE_CLIENT_ID
         )
-
-    owner_exists = db.query(User).filter(User.role == UserRole.OWNER).first()
-    if owner_exists:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Owner sudah ada."
-        )
-
-    target_user = db.query(User).filter(User.email == request.email).first()
-    if not target_user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User tidak ditemukan."
-        )
-
-    target_user.role = UserRole.OWNER
-    db.commit()
-    db.refresh(target_user)
-    logger.warning("Bootstrap owner dijalankan untuk %s", target_user.email)
-    return target_user
-
-
-@router.post("/set-role", response_model=UserOut)
-def set_user_role(
-    request: RoleUpdateRequest,
-    db: Session = Depends(get_db),
-    _current_user: User = Depends(require_role([UserRole.OWNER])),
-):
-    target_user = db.query(User).filter(User.email == request.email).first()
-    if not target_user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User tidak ditemukan."
-        )
-
-    if target_user.role == UserRole.OWNER and request.role != UserRole.OWNER:
-        owner_count = db.query(User).filter(User.role == UserRole.OWNER).count()
-        if owner_count <= 1:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Tidak bisa menurunkan role owner terakhir.",
-            )
-
-    target_user.role = request.role
-    db.commit()
-    db.refresh(target_user)
-    return target_user
-
-
-@router.post("/token", response_model=Token)
-def login(
-    db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()
-):
-    user = db.query(User).filter(User.email == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email atau password salah",
-            headers={"WWW-Authenticate": "Bearer"},
+            detail="Google ID token tidak valid.",
+        ) from exc
+    if not claims.get("email") or not claims.get("email_verified", False):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Email Google belum terverifikasi.",
+        )
+    return claims
+
+
+@router.post("/google", response_model=Token)
+def google_login(request: GoogleLoginRequest, db: Session = Depends(get_db)):
+    """Login/daftar otomatis lewat Google ID token. Tidak ada password."""
+    claims = verify_google_token(request.id_token)
+    email = str(claims["email"]).lower().strip()
+    google_sub = str(claims.get("sub", ""))
+
+    if OWNER_EMAILS and email not in OWNER_EMAILS:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Email ini tidak diizinkan mengakses project pribadi.",
         )
 
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        import uuid
+
+        referred_by = None
+        if request.referral_code:
+            referred_by = (
+                db.query(User)
+                .filter(User.referral_code == request.referral_code)
+                .first()
+            )
+        user = User(
+            email=email,
+            username=(email.split("@")[0] + "-" + secrets.token_hex(2))[:40],
+            hashed_password=GOOGLE_PASSWORD_SENTINEL,
+            google_sub=google_sub,
+            referral_code=str(uuid.uuid7())[:8].upper(),
+            referred_by_id=referred_by.id if referred_by else None,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        logger.info(f"[Auth] User Google baru: {email}")
+
     access_token = create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
+        data={"sub": user.email},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     )
     return {"access_token": access_token, "token_type": "bearer"}
 

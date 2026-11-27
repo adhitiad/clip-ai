@@ -1,7 +1,16 @@
 import os
-import yt_dlp
+
 import webvtt
+import yt_dlp
+
 from backend.log import logger
+
+DOWNLOAD_DIR = "download"
+
+
+def _ensure_download_dir() -> str:
+    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+    return DOWNLOAD_DIR
 
 
 def check_and_get_youtube_subs(video_url: str, lang: str = "id"):
@@ -68,9 +77,34 @@ def parse_vtt_to_transcript(vtt_path: str) -> str:
     return "\n".join(transcript_lines)
 
 
+def get_video_info(video_url: str) -> dict:
+    """Metadata ringan (judul, durasi) tanpa mengunduh video.
+
+    Best-effort: kegagalan jaringan/rate limit mengembalikan dict kosong agar
+    pipeline tetap bisa lanjut.
+    """
+    ydl_opts = {
+        "skip_download": True,
+        "noplaylist": True,
+        "quiet": True,
+        "no_warnings": True,
+    }
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(video_url, download=False) or {}
+        return {
+            "id": info.get("id"),
+            "title": info.get("title") or "",
+            "duration": info.get("duration"),
+        }
+    except Exception as exc:
+        logger.warning(f"Gagal metadata video {video_url}: {str(exc)[:120]}")
+        return {}
+
+
 def download_audio_only(video_url: str) -> str:
     """
-    Mengunduh file audio saja dalam format m4a/mp3 untuk dikirim ke Groq Whisper.
+    Mengunduh file audio saja dalam format m4a/mp3 untuk ditranskrip via REST.
     """
     print("Mengunduh audio dari YouTube...")
 
@@ -91,6 +125,30 @@ def download_audio_only(video_url: str) -> str:
         info = ydl.extract_info(video_url, download=True)
         # yt-dlp dengan postprocessor m4a akan mengubah ekstensi file
         return f"temp/audio_{info['id']}.m4a"
+
+
+def download_video_full(video_url: str, output_name: str | None = None) -> str | None:
+    """
+    Unduh video penuh ke folder ./download/ (dipakai auto-discover dari topik).
+    Tidak memotong — seluruh file disimpan agar bisa dirender ulang nanti.
+    Mengembalikan path file atau None jika gagal.
+    """
+    _ensure_download_dir()
+    ydl_opts = {
+        "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        "outtmpl": os.path.join(DOWNLOAD_DIR, output_name or "%(id)s.%(ext)s"),
+        "quiet": True,
+        "noprogress": True,
+    }
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(video_url, download=True)
+            ext = info.get("ext", "mp4")
+            vid = info.get("id", "video")
+            return os.path.join(DOWNLOAD_DIR, f"{vid}.{ext}")
+    except Exception as e:
+        logger.error(f"[YouTube] Gagal unduh video penuh {video_url}: {e}")
+        return None
 
 
 # Tambahkan fungsi ini di utils/youtube.py

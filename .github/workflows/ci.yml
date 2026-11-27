@@ -1,0 +1,93 @@
+name: CI — Python gate
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: ruff + compileall + postgres + pytest + import smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:19.0-alpine3.24
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: clip_ai
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d clip_ai"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      GATE_DATABASE_URL: postgresql://postgres:password@localhost:5432/clip_ai
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv + Python 3.14
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.14'
+          enable-cache: true
+
+      - name: Sync dependencies (frozen lockfile)
+        run: uv sync --frozen
+
+      - name: Verify lockfile
+        run: uv lock --check
+
+      - name: Run Python gate
+        run: uv run python scripts/gate.py
+
+  frontend-a11y:
+    name: Playwright screenshots + axe (WCAG A/AA)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Placeholder hanya untuk inisialisasi Better Auth di CI; bukan kredensial nyata.
+      BETTER_AUTH_SECRET: ci-placeholder-secret-0123456789abcdef
+      BETTER_AUTH_URL: http://localhost:3000
+      GOOGLE_CLIENT_ID: ci-placeholder.apps.googleusercontent.com
+      GOOGLE_CLIENT_SECRET: ci-placeholder-client-secret
+      SERVER_URL: http://localhost:8000
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Install frontend dependencies (frozen lockfile)
+        working-directory: frontend
+        run: bun install --frozen-lockfile
+
+      - name: Install Chromium
+        working-directory: frontend
+        run: bunx playwright install --with-deps chromium
+
+      - name: Screenshot per rute + audit axe
+        working-directory: frontend
+        run: bun --bun run test:a11y
+
+      - name: Upload hasil kegagalan
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-a11y
+          path: frontend/test-results
+          retention-days: 7

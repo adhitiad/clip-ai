@@ -1,0 +1,23 @@
+title: "[Show]: "
+labels: ["showcase"]
+body:
+  - type: textarea
+    id: result
+    attributes:
+      label: Apa yang Anda buat?
+      description: Short/reel/tiktok hasil agent, atau integrasi menarik.
+    validations:
+      required: true
+  - type: textarea
+    id: how
+    attributes:
+      label: Cara singkat mereproduksinya
+      placeholder: |
+        - AGENT_PROVIDER / TTS_PROVIDER / STT_PROVIDER
+        - UI /shorts atau POST /agent/shorts { ... }
+        - output/FINAL_....mp4
+  - type: textarea
+    id: notes
+    attributes:
+      label: Catatan / masukan
+      description: Apa yang bisa diperbaiki dari hasil render atau brief?

@@ -1,0 +1,60 @@
+name: Feature request
+description: Usulan fitur baru / perbaikan workflow
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Masalah / kebutuhan
+      description: Masalah apa yang ingin diselesaikan?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Usulan solusi
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Kriteria selesai
+      description: Apa yang harus terbukti agar fitur dianggap selesai?
+      placeholder: |
+        - Endpoint /... merespons ... atau UI /shorts bisa dipakai
+        - Test di tests/** ditambahkan (gate Python hijau)
+        - Gate frontend hijau bila menyentuh UI
+        - docs/API.md dan README.md diperbarui
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Agent / provider LLM
+        - Shorts workflow / UI
+        - TTS / STT
+        - Render / video
+        - API / auth (Google)
+        - Database / env
+        - CI / CD
+        - Docs
+    validations:
+      required: true
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Batasan yang harus dipatuhi
+      options:
+        - label: Tidak menambah model ML / training (repo ini rule-based)
+          required: true
+        - label: Tidak menambah role/plan/kredit/billing (project pribadi, 1 user)
+          required: true
+        - label: Test backend ditambahkan di tests/** dan gate Python hijau
+          required: true
+        - label: Gate frontend hijau bila menyentuh frontend
+          required: false
+        - label: Kontrak API diperbarui bila ada perubahan route/schema
+          required: false

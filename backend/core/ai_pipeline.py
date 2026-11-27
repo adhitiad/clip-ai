@@ -1,35 +1,11 @@
-import os
-from groq import Groq
-from langchain_groq import ChatGroq
-from langchain_huggingface import HuggingFaceEndpoint
-from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
+from langchain_core.prompts import PromptTemplate
 from pydantic import BaseModel, Field
 
-try:
-    from langchain_experimental.text_splitter import SemanticChunker
-
-    _HAS_SEMANTIC_CHUNKER = True
-except ImportError:
-    _HAS_SEMANTIC_CHUNKER = False
-
-try:
-    from langchain_huggingface import HuggingFaceEmbeddings
-
-    _HAS_HF_EMBEDDINGS = True
-except ImportError:
-    _HAS_HF_EMBEDDINGS = False
-
 from backend.core.agent import build_few_shot_prompt_context
-
+from backend.core.transcription import transcribe
 from backend.log import logger
-
-# Inisialisasi API Keys
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-HF_TOKEN = os.environ.get("HUGGINGFACEHUB_API_TOKEN")
-
-# Standar Client Groq untuk Audio
-groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
+from backend.services.model_discovery import get_text_model
 
 
 # --- SKEMA DATA LANGCHAIN ---
@@ -42,41 +18,16 @@ class HookSchema(BaseModel):
     )
 
 
-# --- FASE 1: TRANSKRIPSI (GROQ WHISPER) ---
+# --- FASE 1: TRANSKRIPSI (provider cloud via REST) ---
 def get_transcript(audio_path: str) -> str:
-    if not groq_client:
-        return ""
-    logger.info("1. Mentranskrip audio dengan Groq Whisper (Super Cepat)...")
-    with open(audio_path, "rb") as file:
-        transcription = groq_client.audio.transcriptions.create(
-            file=(audio_path, file.read()),
-            model="whisper-large-v3",
-            response_format="verbose_json",
-        )
-    return transcription.text
+    logger.info("1. Mentranskrip audio (OpenAI/Groq Whisper)...")
+    return transcribe(audio_path)
 
 
-# 2. Semantic Chunking untuk Alur Cerita
+# 2. Chunking transkrip untuk alur cerita
 def semantic_group_transcript(transcript_text: str) -> list[str]:
-    """
-    Mengelompokkan transkrip berdasarkan kesatuan ide (Semantic Chunking).
-    Fallback ke RecursiveCharacterTextSplitter jika SemanticChunker tidak tersedia.
-    """
-    logger.info("  -> Melakukan Semantic Chunking pada transkrip...")
-    # Gunakan SemanticChunker jika modul tersedia
-    if _HAS_SEMANTIC_CHUNKER and _HAS_HF_EMBEDDINGS:
-        try:
-            embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-            text_splitter = SemanticChunker(embeddings)
-            docs = text_splitter.create_documents([transcript_text])
-            return [doc.page_content for doc in docs]
-        except Exception as e:
-            logger.warning(
-                f"SemanticChunker gagal, fallback ke RecursiveCharacter: {e}"
-            )
-
-    # Fallback: RecursiveCharacterTextSplitter dari langchain_core
-    logger.info("  -> Menggunakan RecursiveCharacterTextSplitter sebagai fallback...")
+    """Kelompokkan transkrip memakai RecursiveCharacterTextSplitter."""
+    logger.info("  -> Mengelompokkan transkrip (RecursiveCharacterTextSplitter)...")
     try:
         from langchain_text_splitters import RecursiveCharacterTextSplitter
 
@@ -84,19 +35,17 @@ def semantic_group_transcript(transcript_text: str) -> list[str]:
         docs = splitter.create_documents([transcript_text])
         return [doc.page_content for doc in docs]
     except Exception as e:
-        logger.warning(
-            f"RecursiveCharacterTextSplitter juga gagal, pakai raw text: {e}"
-        )
+        logger.warning(f"Text splitter gagal, pakai raw text: {e}")
         return [transcript_text]
 
 
-# --- FASE 2: CARI HOOK (LANGCHAIN + GROQ LLM) ---
+# --- FASE 2: CARI HOOK (LANGCHAIN, provider bebas) ---
 def find_hooks_with_groq(transcript_text: str, user_query: str):
     logger.info(
         f"2. Menganalisis Hook untuk topik: '{user_query}' MENGGUNAKAN Continuous Learning..."
     )
 
-    llm = ChatGroq(model="llama3-70b-8192", temperature=0.7, api_key=GROQ_API_KEY)
+    llm = get_text_model(temperature=0.7)
     parser = JsonOutputParser(pydantic_object=HookSchema)
 
     # Ambil konteks belajar terbaru via Semantic Search Pinecone
@@ -148,37 +97,37 @@ def find_hooks_with_groq(transcript_text: str, user_query: str):
 
         return hooks_list
     except Exception as e:
-        logger.error(f"Error parsing Groq: {e}")
+        logger.error(f"Error parsing LLM hook: {e}")
         return []
 
 
-# --- FASE 3: TERJEMAHAN GLOBAL (LANGCHAIN + HUGGING FACE) ---
+# --- FASE 3: TERJEMAHAN GLOBAL (LANGCHAIN, provider bebas) ---
 def translate_metadata_with_hf(hooks: list):
-    logger.info(
-        "3. Menerjemahkan ke Bahasa Inggris dengan Hugging Face (Pengganti DeepL)..."
-    )
-
-    # Menggunakan model spesifik penerjemah dari Hugging Face Hub (Gratis)
-    hf_translator = HuggingFaceEndpoint(
-        repo_id="Helsinki-NLP/opus-mt-id-en",  # Model spesifik Indo ke English
-        task="translation",
-        max_new_tokens=512,
-        huggingfacehub_api_token=HF_TOKEN,
-        temperature=0.2,
-    )
+    """Terjemahkan judul/deskripsi via LLM LangChain (bukan HuggingFace khusus)."""
+    logger.info("3. Menerjemahkan metadata ke Bahasa Inggris via LangChain...")
+    translator = get_text_model(temperature=0.2)
 
     for hook in hooks:
         try:
-            # Terjemahkan Judul
-            eng_title = hf_translator.invoke(hook["title_id"])
-            # Terjemahkan Deskripsi
-            eng_desc = hf_translator.invoke(hook["desc_id"])
-
-            # Tambahkan ke dictionary
-            hook["title_en"] = eng_title.strip()
-            hook["desc_en"] = eng_desc.strip()
+            prompt = (
+                "Terjemahkan teks berikut ke Bahasa Inggris natural untuk konten "
+                "short-form. Balas HANYA terjemahannya.\n\n"
+                f"JUDUL: {hook.get('title_id', '')}\n"
+                f"DESKRIPSI: {hook.get('desc_id', '')}\n\n"
+                "Format: JUDUL: <terjemahan>\nDESKRIPSI: <terjemahan>"
+            )
+            response = translator.invoke(prompt)
+            text = getattr(response, "content", str(response))
+            title_en, desc_en = hook.get("title_id", ""), hook.get("desc_id", "")
+            for line in text.splitlines():
+                if line.lower().startswith("judul:"):
+                    title_en = line.split(":", 1)[1].strip()
+                elif line.lower().startswith("deskripsi:"):
+                    desc_en = line.split(":", 1)[1].strip()
+            hook["title_en"] = title_en
+            hook["desc_en"] = desc_en
         except Exception as e:
-            logger.error(f"Format HF eror saat menerjemahkan: {str(e)[:50]}")
+            logger.error(f"Gagal menerjemahkan via LLM: {str(e)[:50]}")
             hook["title_en"] = hook["title_id"]
             hook["desc_en"] = hook["desc_id"]
 
@@ -195,13 +144,13 @@ def process_video_ai_logic(
 ):
     """
     Pipeline AI utama:
-      1. Transkripsi (Groq Whisper)
-      2. Temukan hook (LangChain + Groq LLaMA)
-      3. Terjemahkan (HuggingFace)
-      4. Hitung viral score (Groq LLM)
+      1. Transkripsi (OpenAI/Groq Whisper via REST)
+      2. Temukan hook (LangChain, provider bebas)
+      3. Terjemahkan (LangChain, provider bebas)
+      4. Hitung viral score (LangChain, provider bebas)
       5. [NEW] Filter ML — hanya klip skor >= threshold yang lolos
     """
-    # Jika transcript_text sudah didapat dari YouTube VTT, lewati Groq Whisper
+    # Jika transcript_text sudah didapat dari YouTube VTT, lewati transkripsi cloud
     if not transcript_text and audio_path:
         transcript_text = get_transcript(audio_path)
 

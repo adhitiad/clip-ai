@@ -17,14 +17,15 @@ try:
     h = bcrypt.hashpw(b"test", bcrypt.gensalt())
     print("hash length:", len(h))
     print(datetime.datetime.now(), "Testing DB")
-    import os
-    from dotenv import load_dotenv
-    from backend.utils.db import SessionLocal, init_db
+    from backend.core.env import load_env
+    from backend.utils.db import init_db
+
+    load_env("backend")
 
     print("init DB")
     init_db()
     print("DB initialized")
-except Exception as e:
+except Exception:
     import traceback
 
     traceback.print_exc()

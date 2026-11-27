@@ -1,0 +1,10 @@
+bun.lock
+dist
+node_modules
+anti-slop
+.taste-skill
+src/paraglide
+project.inlang/.lix
+project.inlang/cache
+test-results
+playwright-report

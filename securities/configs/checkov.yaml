@@ -1,0 +1,7 @@
+compact: true
+quiet: true
+output: json
+
+skip-check:
+  # Compose lokal tidak memakai resource limit Kubernetes.
+  - CKV_K8S_11

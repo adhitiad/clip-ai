@@ -1,8 +1,10 @@
 import os
-import requests
+
 import numpy as np
-from backend.log import logger
+import requests
 from langchain_huggingface import HuggingFaceEmbeddings
+
+from backend.log import logger
 
 
 def _score_broll_relevance(keyword: str, video_description: str) -> float:

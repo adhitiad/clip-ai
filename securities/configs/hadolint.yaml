@@ -1,0 +1,5 @@
+failure-threshold: warning
+ignored:
+  # Docker image repo ini sengaja tidak pin versi apt agar mengikuti security update.
+  - DL3008
+  - DL3009

@@ -18,9 +18,6 @@ webvtt-py
 sqlalchemy
 psycopg2-binary
 pinecone
-celery
-flower
-redis
 python-dotenv
 # AI Voice-Over Dubbing
 gtts

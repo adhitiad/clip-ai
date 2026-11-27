@@ -1,0 +1,46 @@
+.git
+.github
+.venv
+venv
+node_modules/
+__pycache__
+*.pyc
+.env
+.env.*
+!.env.example
+temp/
+output/
+download/
+logs/
+models/*.pkl
+models/training_data.jsonl
+*.db
+dist/
+.pytest_cache/
+.ruff_cache/
+
+# ── Security toolkit (binary scanner, uv-tools, reports) ──
+# Jangan pernah masukkan ke build context/image.
+securities/
+
+# ── Kredensial & artefak scan lokal ──
+client_secret*.json
+zap-report-auth.*
+nuclei*.json
+semgrep*.json
+
+# ── Agent docs ──
+.agents/
+.claude/
+
+# ── Frontend ──
+frontend/node_modules/
+frontend/.next/
+frontend/dist/
+frontend/.tanstack/
+frontend/.output/
+frontend/playwright-report/
+frontend/test-results/
+frontend/.env.local
+frontend/.env
+frontend/.data/

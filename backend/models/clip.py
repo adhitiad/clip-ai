@@ -1,4 +1,6 @@
-from sqlalchemy import Column, Integer, String
+from datetime import datetime, timezone
+
+from sqlalchemy import Column, DateTime, Integer, String
 from backend.utils.db import Base
 
 
@@ -14,6 +16,11 @@ class Clip(Base):
     desc_en = Column(String)
     score = Column(Integer, default=0)
     user_id = Column(Integer, index=True, nullable=True)
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
 
     # Relationship to user if needed later
     # user_id = Column(Integer, ForeignKey("users.id"))

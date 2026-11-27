@@ -1,0 +1,36 @@
+title: "[Q&A]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tanya cara pakai / konfigurasi. Cek dulu [GOAL](../../docs/GOAL.md), [RUNBOOK](../../docs/RUNBOOK.md), [API](../../docs/API.md), dan [VOICE](../../docs/VOICE.md).
+        Jangan tempel API key, `.env`, atau JWT. Docker dijalankan pemilik repo, bukan agent.
+  - type: textarea
+    id: question
+    attributes:
+      label: Pertanyaan
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: Yang sudah dicoba
+      placeholder: |
+        - uv run python scripts/gate.py → Gate passed
+        - POST /agent/shorts → 503 ...
+  - type: dropdown
+    id: area
+    attributes:
+      label: Topik
+      options:
+        - Setup / env
+        - Agent / provider
+        - TTS / STT
+        - Frontend / UI shorts
+        - Render / video
+        - API / auth (Google)
+        - CI / CD
+        - Docker (ditanyakan ke pemilik repo)
+    validations:
+      required: true

@@ -1,0 +1,83 @@
+name: Bug report
+description: Laporkan perilaku yang salah / error yang bisa direproduksi
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Jangan tempel `.env`, API key, JWT, atau data user. Gunakan versi yang diredaksi.
+  - type: textarea
+    id: what
+    attributes:
+      label: Apa yang terjadi?
+      description: Gejala + pesan error lengkap (dari terminal / log / response API).
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Apa yang diharapkan?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Langkah reproduksi
+      placeholder: |
+        1. uv run uvicorn backend.main:app --reload --port 8000
+        2. POST /agent/shorts dengan body ...
+        3. Error muncul ...
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - API / routes
+        - Agent / LangChain
+        - TTS / STT (suara)
+        - Render / FFmpeg / Taskiq
+        - Frontend / UI shorts
+        - Database / env / Alembic
+        - CI / CD
+        - Docs
+        - Lainnya
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Versi Python & uv
+      placeholder: "Python 3.14.5, uv 0.12.11"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Sistem operasi
+      options:
+        - Windows
+        - Linux
+        - macOS
+        - GitHub Actions
+    validations:
+      required: true
+  - type: textarea
+    id: gate
+    attributes:
+      label: Hasil gate
+      description: Tempel output ringkas `uv run python scripts/gate.py` dan/atau gate frontend (`bun --bun run lint/check/typecheck/test/build`).
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Sebelum submit
+      options:
+        - label: Saya sudah menjalankan gate Python dan/atau frontend yang relevan
+          required: true
+        - label: Tidak ada API key, JWT, `.env`, atau data sensitif yang ikut ditempel
+          required: true
+        - label: Saya tidak meminta agent menjalankan Docker (Docker dijalankan pemilik repo)
+          required: false

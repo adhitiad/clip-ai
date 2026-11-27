@@ -1,0 +1,18 @@
+rules:
+  - id: clip-ai.eval-like
+    languages: [python, javascript, typescript]
+    message: "Eval/exec berpotensi injection. Hindari input user langsung."
+    severity: WARNING
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: exec(...)
+      - pattern: new Function(...)
+
+  - id: clip-ai.shell-true
+    languages: [python]
+    message: "subprocess shell=True berisiko command injection."
+    severity: WARNING
+    pattern-either:
+      - pattern: subprocess.run(..., shell=True, ...)
+      - pattern: subprocess.call(..., shell=True, ...)
+      - pattern: subprocess.Popen(..., shell=True, ...)

@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Tanya / diskusi umum
+    url: https://github.com/adhitiad/clip-ai/discussions
+    about: Gunakan GitHub Discussions untuk pertanyaan, ide, dan show & tell.
+  - name: Goal & workflow
+    url: https://github.com/adhitiad/clip-ai/blob/master/docs/GOAL.md
+    about: Baca tujuan & alur agent sebelum membuka issue.
+  - name: Runbook operasional
+    url: https://github.com/adhitiad/clip-ai/blob/master/docs/RUNBOOK.md
+    about: Pastikan sudah mengikuti runbook sebelum melaporkan bug setup.
+  - name: Kontrak API
+    url: https://github.com/adhitiad/clip-ai/blob/master/docs/API.md
+    about: Cek endpoint & aturan akses sebelum melaporkan bug API.

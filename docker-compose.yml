@@ -1,0 +1,158 @@
+﻿# Clip AI — local stack (RabbitMQ + PostgreSQL 19 + API + Worker + Frontend)
+# RabbitMQ dipakai frontend worker (primary) + Taskiq fallback; Redis tidak dipakai.
+# Semua layanan dibangun lewat Docker Compose; jalankan: docker compose up -d --build
+
+services:
+  db:
+    image: postgres:19.0-alpine3.24
+    container_name: clip-ai-db
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-clip_ai}
+    ports:
+      - "${PG_PORT_HOST:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-clip_ai}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    container_name: clip-ai-rabbitmq
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-clipai}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD wajib diisi di .env}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-clip-ai}
+    ports:
+      # Default hanya localhost. Untuk worker di PC lain, set RABBITMQ_BIND_IP
+      # ke IP LAN mesin broker; jangan pernah 0.0.0.0 tanpa firewall.
+      - "${RABBITMQ_BIND_IP:-127.0.0.1}:${RABBITMQ_PORT_HOST:-5672}:5672"
+      - "${RABBITMQ_UI_BIND_IP:-127.0.0.1}:${RABBITMQ_UI_PORT_HOST:-15672}:15672"
+    volumes:
+      - rabbitdata:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: clip-ai-api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      RABBITMQ_URL: ${RABBITMQ_URL_INTERNAL:?RABBITMQ_URL_INTERNAL wajib diisi di .env}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-clip_ai}
+    ports:
+      - "${API_PORT_HOST:-8000}:8000"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health/live', timeout=2)\""
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - output:/app/output
+      - temp:/app/temp
+      - download:/app/download
+
+  render-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.render-worker
+    container_name: clip-ai-render-worker
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      RABBITMQ_URL: ${RABBITMQ_URL_INTERNAL:?RABBITMQ_URL_INTERNAL wajib diisi di .env}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-clip_ai}
+    volumes:
+      - output:/app/output
+      - temp:/app/temp
+      - download:/app/download
+    stop_grace_period: 30s
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: clip-ai-worker
+    restart: unless-stopped
+    working_dir: /app
+    env_file: .env
+    environment:
+      RABBITMQ_URL: ${RABBITMQ_URL_INTERNAL:?RABBITMQ_URL_INTERNAL wajib diisi di .env}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-clip_ai}
+    command: ["uv", "run", "--no-dev", "taskiq", "worker", "workers.worker:broker", "--workers", "${TASKIQ_WORKERS:-6}", "--ack-type", "when_saved"]
+    volumes:
+      - output:/app/output
+      - temp:/app/temp
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: clip-ai-frontend
+    restart: unless-stopped
+    env_file:
+      - .env
+      - frontend/.env.local
+    environment:
+      # Root .env memakai PORT=8000 untuk API; frontend harus menimpa ini.
+      PORT: 3000
+      HOST: 0.0.0.0
+      # Backend & broker di dalam jaringan Docker (bukan localhost).
+      SERVER_URL: http://api:8000
+      RABBITMQ_URL: ${RABBITMQ_URL_INTERNAL:?RABBITMQ_URL_INTERNAL wajib diisi di .env}
+      # Better Auth / backend bridge (baca dari host, tidak dimasukkan ke image).
+      BETTER_AUTH_URL: http://localhost:3000
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    depends_on:
+      api:
+        condition: service_started
+
+volumes:
+  pgdata:
+  rabbitdata:
+  output:
+  temp:
+  download:

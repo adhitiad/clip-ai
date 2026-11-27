@@ -1,15 +1,24 @@
-import ffmpeg
-import cv2
 import os
+
+import cv2
+import ffmpeg
 import mediapipe as mp
-import random
+from moviepy import AudioFileClip, CompositeVideoClip, TextClip, VideoFileClip, vfx
+
 from backend.log import logger
-from moviepy import TextClip, CompositeVideoClip, VideoFileClip, AudioFileClip
 from backend.services.viral_predictor import select_best_hook_variant
 
 
+def _has_legacy_mediapipe_solutions() -> bool:
+    """MediaPipe >=1.2 menghapus modul ``solutions`` (hanya Tasks API)."""
+    return hasattr(mp, "solutions") and hasattr(mp.solutions, "face_detection")
+
+
 def analyze_video_layout(video_path: str):
-    """Menggunakan MediaPipe untuk mendeteksi wajah/pose dan menentukan mode layout: 'crop', 'split', atau 'gta'."""
+    """Deteksi wajah via MediaPipe; fallback center-crop bila tidak tersedia."""
+    if not _has_legacy_mediapipe_solutions():
+        logger.warning("[Video] MediaPipe solutions tidak tersedia; pakai center-crop.")
+        return "gta", 0
     mp_face_detection = mp.solutions.face_detection
     cap = cv2.VideoCapture(video_path)
 
@@ -87,7 +96,10 @@ def analyze_video_layout(video_path: str):
 
 
 def detect_active_speaker(video_path: str, split_x: list):
-    """Melacak pergerakan bibir menggunakan FaceMesh untuk Speaker Diarization."""
+    """Melacak bibir via FaceMesh; fallback expression kosong bila tidak ada."""
+    if not hasattr(mp, "solutions") or not hasattr(mp.solutions, "face_mesh"):
+        logger.warning("[Video] MediaPipe FaceMesh tidak tersedia; skip diarization.")
+        return "between(t,-1,-1)", "between(t,-1,-1)"
     mp_face_mesh = mp.solutions.face_mesh
     cap = cv2.VideoCapture(video_path)
     fps = cap.get(cv2.CAP_PROP_FPS) or 30
@@ -153,25 +165,34 @@ def generate_dynamic_subtitles(words, video_width, video_height):
 
         txt = (
             TextClip(
-                word["text"].upper(),
-                fontsize=fontsize,
+                text=word["text"].upper(),
+                font_size=fontsize,
                 color=color,
                 stroke_color="black",
                 stroke_width=2,
-                font="Arial-Bold",
                 method="caption",
-                size=(video_width * 0.8, None),
+                size=(int(video_width * 0.8), None),
             )
-            .set_start(word["start"])
-            .set_duration(max(0.1, word["end"] - word["start"]))
-            .set_position(("center", video_height * 0.7))
+            .with_start(word["start"])
+            .with_duration(max(0.1, word["end"] - word["start"]))
+            .with_position(("center", video_height * 0.7))
         )
         clips.append(txt)
     return clips
 
 
-def process_clip(video_url: str, clip_metadata: dict, index: int, download_func):
-    """Pipeline render utama dengan A/B Testing, Dynamic Captions, dan B-Roll."""
+def process_clip(
+    video_url: str,
+    clip_metadata: dict,
+    index: int,
+    download_func,
+    output_path: str | None = None,
+):
+    """Pipeline render utama dengan A/B Testing, Dynamic Captions, dan B-Roll.
+
+    ``output_path`` dipakai render mix agar tiap bagian bisa dikonkatenasi
+    sebelum menjadi satu MP4 final.
+    """
     start_time = clip_metadata.get("start_time", 0)
     end_time = clip_metadata.get("end_time", 0)
     raw_title = clip_metadata.get("title_id", f"Clip_{index}")
@@ -184,12 +205,23 @@ def process_clip(video_url: str, clip_metadata: dict, index: int, download_func)
     temp_landscape = f"temp/raw_{index}.mp4"
     temp_audio = f"temp/audio_{index}.mp3"
     temp_vertical_v1 = f"temp/v1_{index}.mp4"
-    final_variant_output = f"output/FINAL_{safe_title}.mp4"
+    final_variant_output = output_path or f"output/FINAL_{safe_title}.mp4"
+    if output_path:
+        os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
 
     logger.info(f"🚀 Render Klip {index}: {raw_title}")
 
     if not download_func(video_url, start_time, end_time, temp_landscape):
         return None
+
+    # Thumbnail dari frame tengah klip (untuk preview klik di UI).
+    middle = (start_time + end_time) / 2
+    thumbnail_path = _generate_thumbnail(temp_landscape, middle, safe_title, index)
+    if thumbnail_path:
+        clip_metadata["thumbnail_path"] = thumbnail_path
+        clip_metadata["thumbnail_url"] = (
+            f"/download/thumbnails/{os.path.basename(thumbnail_path)}"
+        )
 
     # Step Audio & Transcribe
     (
@@ -236,7 +268,7 @@ def process_clip(video_url: str, clip_metadata: dict, index: int, download_func)
     )
 
     # 2. Add Dynamic Captions via MoviePy (PREMIUM LOOK)
-    video_clip = VideoFileClip(temp_vertical_v1).set_audio(AudioFileClip(temp_audio))
+    video_clip = VideoFileClip(temp_vertical_v1).with_audio(AudioFileClip(temp_audio))
     subtitle_clips = generate_dynamic_subtitles(words, video_clip.w, video_clip.h)
 
     # B-Roll Hook (3 seconds)
@@ -247,12 +279,12 @@ def process_clip(video_url: str, clip_metadata: dict, index: int, download_func)
         if download_broll(clip_metadata.get("broll_query", "motivation"), broll_path):
             broll = (
                 VideoFileClip(broll_path)
-                .resize(height=1280)
-                .crop(x_center=video_clip.w / 2, width=720)
-                .set_duration(3)
-                .fadeout(0.5)
+                .resized(height=1280)
+                .cropped(x_center=video_clip.w / 2, width=720)
+                .with_duration(3)
+                .with_effects([vfx.FadeOut(0.5)])
             )
-            video_clip = CompositeVideoClip([video_clip, broll.set_start(0)])
+            video_clip = CompositeVideoClip([video_clip, broll.with_start(0)])
 
     final = CompositeVideoClip([video_clip] + subtitle_clips)
     final.write_videofile(
@@ -265,3 +297,29 @@ def process_clip(video_url: str, clip_metadata: dict, index: int, download_func)
             os.remove(f)
 
     return final_variant_output
+
+
+def _generate_thumbnail(
+    video_path: str, time_sec: float, safe_title: str, index: int
+) -> str | None:
+    """Ambil satu frame dari video_path pada time_sec sebagai thumbnail JPG.
+
+    Disimpan di download/thumbnails/ (gitignored & dockerignored).
+    """
+    try:
+        thumb_dir = os.path.join("download", "thumbnails")
+        os.makedirs(thumb_dir, exist_ok=True)
+        thumb_name = f"{safe_title}_{index}.jpg"
+        thumb_path = os.path.join(thumb_dir, thumb_name)
+
+        (
+            ffmpeg.input(video_path, ss=time_sec)
+            .filter("scale", 720, 1280)
+            .output(thumb_path, vframes=1, qscale=2, update=True)
+            .run(quiet=True, overwrite_output=True)
+        )
+        if os.path.exists(thumb_path):
+            return thumb_path
+    except Exception as exc:
+        logger.warning(f"[Video] Gagal generate thumbnail: {exc}")
+    return None

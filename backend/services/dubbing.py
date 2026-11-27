@@ -1,209 +1,50 @@
-"""
-services/dubbing.py
-====================
-AI Voice-Over Auto Dubbing Engine
+"""services/dubbing.py — orkestrasi dubbing video.
 
-Pipeline:
-  1. Groq Whisper → transkripsi + segmen waktu
-  2. Groq LLaMA → terjemahkan teks ke target bahasa
-  3. ElevenLabs API → TTS suara realistis (primary)
-     Coqui TTS (gTTS fallback) → jika ElevenLabs tidak dikonfigurasi
-  4. FFmpeg → replace audio track asli dengan audio dubbing,
-              pitch/speed adjust otomatis sesuai durasi klip
-
-Variabel ENV yang dibutuhkan:
-  - ELEVENLABS_API_KEY (opsional, jika kosong → fallback ke gTTS)
-  - GROQ_API_KEY (wajib)
+TTS, STT, dan LLM berada di modul terpisah:
+  - backend.services.tts            (text → speech)
+  - backend.core.transcription      (speech → text)
+  - backend.services.model_discovery (LLM chat via LangChain)
 """
 
-import os
 import json
-import time
-import tempfile
+import os
 import subprocess
-import requests
-from pathlib import Path
+import tempfile
 from typing import Optional
+
+from backend.core.transcription import transcribe_segments
 from backend.log import logger
-
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
-
-# ElevenLabs default voice IDs (bisa diganti)
-ELEVENLABS_VOICES = {
-    "id": "pNInz6obpgDQGcFmaJgB",  # Adam – natural, cocok untuk Indo narasi
-    "en": "EXAVITQu4vr4xnSDxMaL",  # Bella – clear English
-    "default": "pNInz6obpgDQGcFmaJgB",
-}
-ELEVENLABS_TTS_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# STEP 1: Transkripsi dengan timestamp per segmen
-# ─────────────────────────────────────────────────────────────────────────────
+from backend.services.model_discovery import get_text_model
+from backend.services.tts import generate_tts
 
 
 def transcribe_with_segments(audio_path: str) -> list[dict]:
-    """
-    Transkripsi audio menggunakan Groq Whisper, kembalikan per segmen:
-    [{"start": float, "end": float, "text": str}]
-    """
-    from groq import Groq
-
-    client = Groq(api_key=GROQ_API_KEY)
-
-    logger.info("[Dubbing] Step 1: Transkripsi dengan Groq Whisper...")
-    with open(audio_path, "rb") as f:
-        result = client.audio.transcriptions.create(
-            file=(audio_path, f.read()),
-            model="whisper-large-v3",
-            response_format="verbose_json",
-        )
-    segments = getattr(result, "segments", []) or []
-    return [
-        {
-            "start": s.get("start", 0),
-            "end": s.get("end", 0),
-            "text": s.get("text", "").strip(),
-        }
-        for s in segments
-        if s.get("text", "").strip()
-    ]
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# STEP 2: Translate teks ke bahasa target
-# ─────────────────────────────────────────────────────────────────────────────
+    """Delegasi ke modul STT."""
+    return transcribe_segments(audio_path)
 
 
 def translate_segments(segments: list[dict], target_lang: str = "id") -> list[dict]:
-    """
-    Terjemahkan teks setiap segmen ke bahasa target menggunakan LLaMA via Groq.
-    target_lang: 'id' (Indonesia) atau 'en' (English)
-    """
-    from groq import Groq
-
-    client = Groq(api_key=GROQ_API_KEY)
-
+    """Terjemahkan segmen memakai LLM LangChain (bukan modul TTS/STT)."""
+    model = get_text_model(temperature=0.3)
     lang_name = "Indonesian" if target_lang == "id" else "English"
-    full_text = "\n".join([f"[{i}] {s['text']}" for i, s in enumerate(segments)])
-
-    logger.info(
-        f"[Dubbing] Step 2: Menerjemahkan {len(segments)} segmen ke {lang_name}..."
+    full_text = "\n".join(f"[{i}] {seg['text']}" for i, seg in enumerate(segments))
+    response = model.invoke(
+        f"Translate the following numbered segments to {lang_name}. "
+        f"Keep the numbering format [0], [1], etc. Respond ONLY with translations.\n\n{full_text}"
     )
-
-    prompt = f"""Translate the following numbered segments to {lang_name}.
-Keep the numbering format exactly [0], [1], etc.
-Keep the translations natural and conversational, suitable for video narration.
-Respond ONLY with the translated segments, nothing else.
-
-{full_text}"""
-
-    response = client.chat.completions.create(
-        messages=[{"role": "user", "content": prompt}],
-        model="llama3-8b-8192",
-        temperature=0.3,
-    )
-
-    translated_text = response.choices[0].message.content.strip()
-    translated_lines = {}
-    for line in translated_text.split("\n"):
-        line = line.strip()
+    content = getattr(response, "content", str(response)).strip()
+    translated: dict[int, str] = {}
+    for line in content.splitlines():
         if line.startswith("[") and "]" in line:
             try:
                 idx_end = line.index("]")
-                idx = int(line[1:idx_end])
-                text = line[idx_end + 1 :].strip()
-                translated_lines[idx] = text
-            except (ValueError, IndexError):
+                translated[int(line[1:idx_end])] = line[idx_end + 1 :].strip()
+            except ValueError:
                 continue
-
-    result = []
-    for i, seg in enumerate(segments):
-        translated = translated_lines.get(i, seg["text"])  # fallback ke original
-        result.append({**seg, "translated_text": translated})
-
-    return result
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# STEP 3A: TTS dengan ElevenLabs (Primary)
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-def tts_elevenlabs(text: str, lang: str = "id", output_path: str = "") -> Optional[str]:
-    """
-    Generate audio dari teks menggunakan ElevenLabs API.
-    Return path ke file audio jika berhasil, None jika gagal.
-    """
-    if not ELEVENLABS_API_KEY:
-        return None
-
-    voice_id = ELEVENLABS_VOICES.get(lang, ELEVENLABS_VOICES["default"])
-    url = ELEVENLABS_TTS_URL.format(voice_id=voice_id)
-
-    headers = {
-        "Accept": "audio/mpeg",
-        "Content-Type": "application/json",
-        "xi-api-key": ELEVENLABS_API_KEY,
-    }
-    payload = {
-        "text": text,
-        "model_id": "eleven_multilingual_v2",
-        "voice_settings": {
-            "stability": 0.5,
-            "similarity_boost": 0.75,
-            "style": 0.3,
-            "use_speaker_boost": True,
-        },
-    }
-
-    try:
-        resp = requests.post(url, headers=headers, json=payload, timeout=30)
-        resp.raise_for_status()
-
-        if not output_path:
-            tmp = tempfile.mktemp(suffix=".mp3")
-            output_path = tmp
-
-        with open(output_path, "wb") as f:
-            f.write(resp.content)
-        return output_path
-
-    except requests.RequestException as e:
-        logger.error(f"[Dubbing] ElevenLabs TTS error: {e}")
-        return None
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# STEP 3B: TTS dengan gTTS (Fallback gratis)
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-def tts_gtts_fallback(
-    text: str, lang: str = "id", output_path: str = ""
-) -> Optional[str]:
-    """Google Text-to-Speech fallback (gratis, kualitas sedang)."""
-    try:
-        from gtts import gTTS
-
-        tts = gTTS(text=text, lang=lang, slow=False)
-        if not output_path:
-            output_path = tempfile.mktemp(suffix=".mp3")
-        tts.save(output_path)
-        return output_path
-    except Exception as e:
-        logger.error(f"[Dubbing] gTTS fallback error: {e}")
-        return None
-
-
-def generate_tts(text: str, lang: str = "id", output_path: str = "") -> Optional[str]:
-    """Coba ElevenLabs dulu, fallback ke gTTS."""
-    result = tts_elevenlabs(text, lang, output_path)
-    if result:
-        return result
-    logger.warning("[Dubbing] ElevenLabs tidak tersedia, fallback ke gTTS...")
-    return tts_gtts_fallback(text, lang, output_path)
+    return [
+        {**seg, "translated_text": translated.get(i, seg["text"])}
+        for i, seg in enumerate(segments)
+    ]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -253,7 +94,7 @@ def merge_dub_to_video(
     """
     import ffmpeg
 
-    logger.info(f"[Dubbing] Step 4: Merging dubbed audio ke video...")
+    logger.info("[Dubbing] Step 4: Merging dubbed audio ke video...")
 
     try:
         video_probe = ffmpeg.probe(video_path)
@@ -323,6 +164,7 @@ def dub_video_clip(
     target_lang: str = "id",
     output_path: str = "",
     keep_original_audio: float = 0.1,
+    script_text: str = "",
 ) -> Optional[str]:
     """
     Pipeline dubbing lengkap dari satu video klip.
@@ -332,6 +174,8 @@ def dub_video_clip(
         target_lang: 'id' untuk Indonesia, 'en' untuk English
         output_path: Path output; jika kosong, akan digenerate otomatis
         keep_original_audio: 0.0 = mute original, 0.1 = ambient, 1.0 = full
+        script_text: naskah opsional; bila diisi, transkripsi audio dilewati
+            (berguna saat tidak ada API key Whisper)
 
     Returns:
         Path ke video dengan audio dubbing, atau None jika gagal
@@ -339,10 +183,6 @@ def dub_video_clip(
     # Validasi
     if not os.path.exists(video_path):
         logger.error(f"[Dubbing] Video tidak ditemukan: {video_path}")
-        return None
-
-    if not GROQ_API_KEY:
-        logger.error("[Dubbing] GROQ_API_KEY belum dikonfigurasi.")
         return None
 
     lang_name = "Indonesia" if target_lang == "id" else "English"
@@ -370,8 +210,12 @@ def dub_video_clip(
             .run(quiet=True)
         )
 
-        # STEP 1: Transkripsi
-        segments = transcribe_with_segments(temp_audio)
+        # STEP 1: Transkripsi (atau naskah yang diberikan caller)
+        if script_text.strip():
+            logger.info("[Dubbing] Memakai script_text, transkripsi dilewati.")
+            segments = [{"start": 0.0, "end": 0.0, "text": script_text.strip()}]
+        else:
+            segments = transcribe_with_segments(temp_audio)
         if not segments:
             logger.warning("[Dubbing] Tidak ada segmen transkripsi ditemukan.")
             return None

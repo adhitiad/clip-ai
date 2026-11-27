@@ -1,0 +1,135 @@
+name: Security — OWASP ZAP
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: zap-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  zap-auth:
+    name: ZAP authenticated scan (SQLite terisolasi + guard read-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      ZAP_DOCKER: '1'
+      SECRET_KEY: gate-only-secret-key
+      GROQ_API_KEY: gate-only-groq-key
+      RABBITMQ_URL: amqp://guest:guest@localhost:5672//
+      DUB_ALLOWED_ROOT: temp
+      OWNER_EMAILS: owner@example.com
+      AUTH_BRIDGE_TOKEN: ci-bridge-token
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv + Python 3.14
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.14'
+          enable-cache: true
+
+      - name: Sync dependencies (frozen lockfile)
+        run: uv sync --frozen
+
+      - name: Jalankan ZAP terautentikasi
+        # scripts/zap_auth_scan.py membuat DB SQLite sementara, JWT via
+        # /auth/bridge, OpenAPI terfilter, dan guard ASGI read-only.
+        run: uv run python scripts/zap_auth_scan.py
+
+      - name: Gate alert High/Medium
+        run: |
+          uv run python - <<'PY'
+          import json
+
+          path = "zap-report-auth.json"
+          try:
+              data = json.loads(open(path, encoding="utf-8").read())
+          except Exception as exc:
+              raise SystemExit(f"Laporan ZAP tidak bisa dibaca: {exc}")
+
+          alerts = [
+              alert
+              for site in data.get("site", [])
+              for alert in site.get("alerts", [])
+          ]
+          bad = [
+              alert
+              for alert in alerts
+              if str(alert.get("riskcode")) in {"2", "3"}
+              or alert.get("risk") in {"High", "Medium"}
+          ]
+          for alert in bad:
+              print(f"ZAP {alert.get('risk')}: {alert.get('name')}")
+          if bad:
+              raise SystemExit(f"ZAP menemukan {len(bad)} alert High/Medium")
+          print(f"ZAP OK: {len(alerts)} alert total, 0 High/Medium")
+          PY
+
+      - name: Audit log (A09 — tidak ada secret/JWT di trace & audit)
+        run: uv run python scripts/audit_logs.py
+
+      - name: Upload laporan ZAP
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-auth-report
+          path: |
+            zap-report-auth.md
+            zap-report-auth.json
+          if-no-files-found: warn
+
+  sca:
+    name: SCA dependencies (uv.lock + frontend/bun.lock)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv + Python 3.14
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.14'
+          enable-cache: true
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Sync dependencies (frozen lockfiles)
+        run: |
+          uv sync --frozen
+          cd frontend && bun install --frozen-lockfile
+
+      - name: Audit Python dependencies
+        run: |
+          mkdir -p temp
+          uv export --frozen --no-dev --format requirements-txt -o temp/requirements-audit.txt
+          uvx pip-audit --no-deps --disable-pip -r temp/requirements-audit.txt -f json -o temp/pip-audit.json || true
+
+      - name: Audit frontend dependencies
+        working-directory: frontend
+        run: |
+          mkdir -p ../temp
+          bun audit --json > ../temp/bun-audit.json || true
+
+      - name: Gate High/Critical
+        run: uv run python scripts/audit_dependencies.py
+
+      - name: Upload laporan SCA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sca-reports
+          path: |
+            temp/pip-audit.json
+            temp/bun-audit.json
+          if-no-files-found: warn

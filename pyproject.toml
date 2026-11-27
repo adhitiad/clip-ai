@@ -1,0 +1,102 @@
+[project]
+name = "clip-ai"
+version = "0.1.0"
+description = "Autonomous AI clipper backend (FastAPI + Taskiq)"
+readme = "README.md"
+requires-python = ">=3.14,<3.15"
+license = { text = "MIT" }
+dependencies = [
+    "bcrypt",
+    "email-validator",
+    "exa-py",
+    "fastapi",
+    "feedparser",
+    "ffmpeg-python",
+    "gtts",
+    "groq",
+    "huggingface-hub",
+    "langchain",
+    "langchain-core",
+    "langchain-groq",
+    "langchain-huggingface",
+    "langchain-openai",
+    "langchain-text-splitters",
+    "librosa",
+    "mediapipe",
+    "moviepy>=2.2.1",
+    "numpy>=2.5.5",
+    "opencv-python-headless",
+    "pinecone",
+    "pydantic",
+    "python-dotenv",
+    "python-multipart",
+    "requests",
+    "sqlalchemy",
+    "uvicorn",
+    "webvtt-py",
+    "yt-dlp",
+    "psycopg[binary]>=3.3.9",
+    # Penemuan video lintas platform (opsional API key / browser).
+    "tavily-python",
+    "firecrawl-py",
+    "selenium",
+    "webdriver-manager",
+    "beautifulsoup4",
+    "lxml",
+    # Access log identitas per-request ke MongoDB (Atlas/eksternal).
+    "pymongo",
+    "langchain-nvidia-ai-endpoints>=1.5.0",
+    "alembic>=1.20.1",
+    "google-auth>=2.63.1",
+    "pandas>=3.1.1",
+    "taskiq>=0.13.0",
+    "taskiq-aio-pika>=0.6.1",
+    "kombu>=5.7.0",
+    "psutil>=7.2.2",
+    "pyjwt[crypto]>=2.15.1",
+]
+
+[dependency-groups]
+dev = ["pytest", "ruff"]
+
+[tool.uv]
+package = false
+# moviepy<2.2.2 membatasi pillow<12; override ini memaksa Pillow 13 yang
+# sudah menutup CVE CRITICAL. Kompatibilitas diverifikasi oleh gate/pytest.
+override-dependencies = ["pillow>=13.0.0"]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 88
+extend-exclude = [
+    ".venv",
+    "assets",
+    "frontend",
+    "logs",
+    "models",
+    "output",
+    "temp",
+]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B"]
+ignore = ["B008"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["backend", "workers"]
+
+[tool.ruff.lint.per-file-ignores]
+"backend/main.py" = ["E402"]
+"backend/scripts/*.py" = ["E402"]
+"backend/utils/db.py" = ["E402"]
+"workers/worker.py" = ["E402"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra"
+# LangChain/LangSmith 3rd-party: asyncio.iscoroutinefunction deprecation
+# (diperbaiki upstream di Python 3.16). Tidak menyembunyikan warning kode kita.
+filterwarnings = [
+    "ignore:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning:langsmith.*",
+]

@@ -1,0 +1,13 @@
+title = "Clip AI — Gitleaks"
+
+[extend]
+useDefault = true
+
+# Jangan mengecualikan test fixture: secret palsu di test tetap boleh terdeteksi
+# dan ditinjau manual. Baseline tidak dipakai supaya temuan lama tidak hilang.
+[allowlist]
+description = "Hanya path yang memang bukan source project"
+paths = [
+  '''securities/reports/.*''',
+  '''temp/.*''',
+]

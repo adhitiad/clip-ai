@@ -9,23 +9,24 @@ Endpoint untuk:
   POST /niche/analyze-and-queue → Satu endpoint lengkap: trending → AI analysis → queue klip
 """
 
+import asyncio
 import os
-from fastapi import APIRouter, Query, HTTPException, Depends, status
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from backend.core.security import (
-    require_plan,
-    check_credits,
-    consume_credits_atomic,
-    refund_credits_atomic,
-)
-from backend.core.auth import get_db
-from backend.models.user import UserPlan, User
-from sqlalchemy.orm import Session
+
+from backend.core.auth import get_current_active_user
+from backend.core.request_id import get_request_id
+from backend.core.telemetry import current_traceparent
+from backend.core.validation import validate_search_type
 from backend.log import logger
+from backend.models.user import User
 
-router = APIRouter(prefix="/niche", tags=["Niche & Discovery"])
-
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+router = APIRouter(
+    prefix="/niche",
+    tags=["Niche & Discovery"],
+    dependencies=[Depends(get_current_active_user)],
+)
 
 
 # ─── SCHEMAS ──────────────────────────────────────────────────────────────────
@@ -57,7 +58,7 @@ async def get_trending(
     """
     from backend.utils.rss_google import get_trending_topics
 
-    topics = get_trending_topics(geo=geo, max_items=max_items)
+    topics = await asyncio.to_thread(get_trending_topics, geo=geo, max_items=max_items)
 
     if not topics:
         raise HTTPException(
@@ -79,22 +80,19 @@ async def suggest_niches(
         default="id", description="Kode negara: 'id', 'us', atau 'global'"
     ),
     max_trends: int = Query(default=20, ge=10, le=50),
-    current_user: User = Depends(require_plan(UserPlan.PREMIUM)),
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     Ambil trending → analisis AI → kembalikan 5 niche terbaik beserta
     saran hook konten dan query pencarian video.
     """
-    from backend.utils.rss_google import get_trending_topics, analyze_niches_with_ai
+    from backend.utils.rss_google import analyze_niches_with_ai, get_trending_topics
 
-    if not GROQ_API_KEY:
-        raise HTTPException(status_code=500, detail="GROQ_API_KEY belum dikonfigurasi.")
-
-    topics = get_trending_topics(geo=geo, max_items=max_trends)
+    topics = await asyncio.to_thread(get_trending_topics, geo=geo, max_items=max_trends)
     if not topics:
         raise HTTPException(status_code=503, detail="Gagal ambil Google Trends.")
 
-    niches = analyze_niches_with_ai(topics, GROQ_API_KEY)
+    niches = await asyncio.to_thread(analyze_niches_with_ai, topics)
 
     return {
         "status": "success",
@@ -112,7 +110,7 @@ async def find_videos(
     max_duration: int = Query(
         default=7200, description="Durasi maksimal video (detik)"
     ),
-    current_user: User = Depends(require_plan(UserPlan.PREMIUM)),
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     Cari video YouTube berdasarkan query menggunakan yt-dlp (tanpa API key).
@@ -120,7 +118,9 @@ async def find_videos(
     """
     from backend.utils.rss_google import search_youtube_videos_rss
 
-    videos = search_youtube_videos_rss(query=query, max_results=max_results * 2)
+    videos = await asyncio.to_thread(
+        search_youtube_videos_rss, query=query, max_results=max_results * 2
+    )
 
     # Filter berdasarkan durasi jika tersedia
     filtered = []
@@ -148,33 +148,32 @@ async def search_web(
         default="auto",
         description="auto | fast | deep-lite | deep | deep-reasoning | instant",
     ),
-    _current_user: User = Depends(require_plan(UserPlan.PREMIUM)),
+    _current_user: User = Depends(get_current_active_user),
 ):
     """
     Cari berita/artikel web terbaru menggunakan Exa.
     """
     from backend.utils.exa_search import search_news_with_exa
 
-    allowed_types = {"auto", "fast", "deep-lite", "deep", "deep-reasoning", "instant"}
-    if search_type not in allowed_types:
-        raise HTTPException(
-            status_code=422,
-            detail=f"search_type tidak valid. Gunakan salah satu: {', '.join(sorted(allowed_types))}",
-        )
+    try:
+        search_type = validate_search_type(search_type)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     try:
-        results = search_news_with_exa(
+        results = await asyncio.to_thread(
+            search_news_with_exa,
             query=query,
             num_results=num_results,
             search_type=search_type,
         )
     except ValueError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
     except Exception as e:
         logger.error(f"[Exa] Gagal search web untuk query '{query}': {e}")
         raise HTTPException(
             status_code=502, detail="Gagal mengambil hasil dari Exa Search."
-        )
+        ) from e
 
     return {
         "status": "success",
@@ -185,37 +184,17 @@ async def search_web(
     }
 
 
-@router.post("/analyze-and-queue")
-async def analyze_and_queue(
-    request: AutoQueueRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(check_credits),
-):
-    # Cek level plan tambahan (Require BUSINESS)
-    from backend.core.security import require_plan
-
-    await require_plan(UserPlan.BUSINESS)(current_user)
-    """
-    🤖 Pipeline Otomatis Penuh:
-      1. Ambil trending Google (geo yang dipilih)
-      2. AI analisis → rekomendasikan N niche terbaik
-      3. Cari video YouTube untuk setiap niche
-      4. Queue rendering klip via Celery untuk setiap video yang ditemukan
-      
-    Ini adalah endpoint "satu tekan" untuk produksi konten tanpa intervensi manual.
-    """
+def _collect_jobs_sync(
+    request: AutoQueueRequest, user_id: int
+) -> tuple[list[dict], list[dict], list[dict]]:
+    from backend.core.ai_pipeline import process_video_ai_logic
+    from backend.utils.db import save_clip
     from backend.utils.rss_google import (
-        get_trending_topics,
         analyze_niches_with_ai,
+        get_trending_topics,
         search_youtube_videos_rss,
     )
-    from backend.core.ai_pipeline import process_video_ai_logic
     from backend.utils.youtube import check_and_get_youtube_subs, download_audio_only
-    from backend.utils.db import save_clip
-    from backend.worker import process_all_clips_task
-
-    if not GROQ_API_KEY:
-        raise HTTPException(status_code=500, detail="GROQ_API_KEY belum dikonfigurasi.")
 
     # STEP 1: Google Trends
     logger.info(
@@ -227,19 +206,15 @@ async def analyze_and_queue(
 
     # STEP 2: AI Niche Analysis
     logger.info(f"[Auto-Queue] Step 2: AI menganalisis {len(topics)} topik...")
-    niches = analyze_niches_with_ai(topics, GROQ_API_KEY)
+    niches = analyze_niches_with_ai(topics)
     if not niches:
         raise HTTPException(status_code=500, detail="AI gagal menganalisis niche.")
 
     selected_niches = niches[: request.niche_count]
+    jobs: list[dict] = []
 
-    # STEP 3 & 4: Per Niche → Cari Video → Queue
-    queued_tasks = []
-
-    credits_exhausted = False
+    # STEP 3 & 4: Per Niche → Cari Video → Siapkan klip
     for niche_data in selected_niches:
-        if credits_exhausted:
-            break
         search_query = niche_data.get("search_query", niche_data.get("niche", ""))
         niche_name = niche_data.get("niche", "Unknown")
 
@@ -251,37 +226,25 @@ async def analyze_and_queue(
             max_results=request.videos_per_niche * 3,  # Ambil lebih untuk difilter
         )
 
-        # Filter durasi
         filtered_videos = []
-        for v in videos:
-            dur = v.get("duration")
+        for video in videos:
+            dur = video.get("duration")
             if dur is not None:
                 if request.min_duration_seconds <= dur <= request.max_duration_seconds:
-                    filtered_videos.append(v)
+                    filtered_videos.append(video)
             else:
-                filtered_videos.append(v)
+                filtered_videos.append(video)
 
-        videos_to_process = filtered_videos[: request.videos_per_niche]
-
-        if not videos_to_process:
-            logger.info(
-                f"[Auto-Queue] ⚠️ Tidak ada video yang cocok untuk niche '{niche_name}'."
-            )
-            continue
-
-        for video in videos_to_process:
+        for video in filtered_videos[: request.videos_per_niche]:
             video_url = video["url"]
             logger.info(
                 f"[Auto-Queue] Step 4: AI Pipeline untuk video: {video['title'][:60]}..."
             )
-
             try:
-                # Coba ambil subtitle dulu (cepat)
                 transcript_text = (
                     check_and_get_youtube_subs(video_url, request.target_language) or ""
                 )
                 audio_path = ""
-
                 if not transcript_text:
                     audio_path = download_audio_only(video_url)
 
@@ -290,15 +253,13 @@ async def analyze_and_queue(
                     user_query=request.user_query,
                     transcript_text=transcript_text,
                 )
-
                 if audio_path and os.path.exists(audio_path):
                     os.remove(audio_path)
 
                 if not clips_metadata:
-                    logger.info(f"  ⚠️ Tidak ada klip ditemukan dari video ini.")
+                    logger.info("  ⚠️ Tidak ada klip ditemukan dari video ini.")
                     continue
 
-                # Simpan ke DB
                 for clip in clips_metadata:
                     db_id = save_clip(
                         video_url=video_url,
@@ -307,44 +268,72 @@ async def analyze_and_queue(
                         end_time=clip.get("end_time", 0),
                         title_en=clip.get("title_en", clip.get("title_id", "")),
                         desc_en=clip.get("desc_en", clip.get("desc_id", "")),
-                        user_id=current_user.id,
+                        user_id=user_id,
                     )
                     clip["clip_id"] = db_id
 
-                if not consume_credits_atomic(db, current_user.id, amount=1):
-                    logger.warning(
-                        "[Auto-Queue] Kredit habis. Menghentikan antrean video berikutnya."
-                    )
-                    credits_exhausted = True
-                    break
-
-                try:
-                    # Queue ke Celery
-                    task = process_all_clips_task.delay(
-                        video_url, clips_metadata, request.target_language
-                    )
-                except Exception:
-                    refund_credits_atomic(db, current_user.id, amount=1)
-                    raise HTTPException(
-                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        detail="Gagal mengantre task render. Kredit sudah dikembalikan.",
-                    )
-
-                queued_tasks.append(
+                jobs.append(
                     {
                         "niche": niche_name,
                         "video_title": video["title"],
                         "video_url": video_url,
-                        "clips_found": len(clips_metadata),
-                        "task_id": task.id,
+                        "clips_metadata": clips_metadata,
                     }
                 )
-
             except HTTPException:
                 raise
-            except Exception as e:
-                logger.error(f"  ❌ Error saat memproses video {video_url}: {e}")
+            except Exception as exc:
+                logger.error(f"  ❌ Error saat memproses video {video_url}: {exc}")
                 continue
+
+    return jobs, niches, selected_niches
+
+
+@router.post("/analyze-and-queue")
+async def analyze_and_queue(
+    request: AutoQueueRequest,
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    🤖 Pipeline Otomatis Penuh:
+      1. Ambil trending Google (geo yang dipilih)
+      2. AI analisis → rekomendasikan N niche terbaik
+      3. Cari video YouTube untuk setiap niche
+      4. Queue rendering klip via Taskiq untuk setiap video yang ditemukan
+
+    Seluruh kerja sinkron berjalan di thread; hanya ``kiq()`` yang di-await.
+    """
+    jobs, niches, selected_niches = await asyncio.to_thread(
+        _collect_jobs_sync, request, current_user.id
+    )
+
+    from workers.worker import process_all_clips_task
+
+    queued_tasks = []
+    for job in jobs:
+        try:
+            task = await process_all_clips_task.kiq(
+                job["video_url"],
+                job["clips_metadata"],
+                request.target_language,
+                get_request_id(),
+                current_traceparent(),
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Gagal mengantre task render.",
+            ) from exc
+
+        queued_tasks.append(
+            {
+                "niche": job["niche"],
+                "video_title": job["video_title"],
+                "video_url": job["video_url"],
+                "clips_found": len(job["clips_metadata"]),
+                "task_id": task.task_id,
+            }
+        )
 
     return {
         "status": "success" if queued_tasks else "partial",

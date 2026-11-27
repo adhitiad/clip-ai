@@ -1,0 +1,23 @@
+# Worker render portabel untuk PC lain (kantor/rumah).
+# Salin .env.worker.example → .env.worker, isi RABBITMQ_URL broker pusat, lalu:
+#   docker compose -f docker-compose.worker.yml up -d --build
+# Tidak perlu DB/API/frontend di PC ini; hanya antrean shorts-render.
+
+services:
+  render-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.render-worker
+    container_name: clip-ai-render-worker-remote
+    restart: unless-stopped
+    env_file: .env.worker
+    environment:
+      NODE_ENV: production
+    volumes:
+      - worker-output:/app/output
+      - worker-temp:/app/temp
+    stop_grace_period: 30s
+
+volumes:
+  worker-output:
+  worker-temp:

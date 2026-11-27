@@ -1,6 +1,9 @@
+import importlib
 import os
-from sqlalchemy import create_engine, Column, Integer, String
+
+from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
+
 from backend.log import logger
 
 # Menggunakan koneksi PostgreSQL
@@ -12,14 +15,30 @@ engine = create_engine(DATABASE_URL, echo=False)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-from backend.models.clip import Clip
-from backend.models.owner_setting import OwnerSetting
-from backend.models.user_setting import UserSetting
-from backend.models.user import User
-from backend.models.finance import Transaction
-from backend.models.investment import AppValuation, InvestorShare
+# Model WAJIB terdaftar di Base.metadata sebelum create_all. Import dilakukan
+# secara lazy di _import_models() untuk menghindari circular import saat
+# modul model diimpor lebih dulu (mis. backend.scripts.seed_db).
+_MODEL_MODULES = (
+    "backend.models.clip",
+    "backend.models.owner_setting",
+    "backend.models.feedback",
+    "backend.models.user",
+    "backend.models.user_setting",
+    "backend.models.task_result",
+)
+_models_imported = False
 
-# Base.metadata.create_all akan memantau model yang diimpor
+
+def _import_models() -> None:
+    global _models_imported
+    if _models_imported:
+        return
+    for module in _MODEL_MODULES:
+        importlib.import_module(module)
+    _models_imported = True
+
+
+__all__ = ["Base", "SessionLocal", "engine"]
 
 
 def _ensure_enum_values():
@@ -97,8 +116,6 @@ def _ensure_users_columns():
         ("referred_by_id", "INTEGER"),
         ("stripe_customer_id", "VARCHAR UNIQUE"),
         ("subscription_status", "VARCHAR DEFAULT 'inactive'"),
-        ("used_credits", "INTEGER DEFAULT 0"),
-        ("credits", "INTEGER DEFAULT 3"),
         ("created_at", "TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP"),
         ("updated_at", "TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP"),
     ]
@@ -162,10 +179,14 @@ def _ensure_clip_user_id_column():
 
 
 def init_db():
+    """
+    Pastikan tabel ada untuk runtime.
+
+    Perubahan skema (enum/kolom lama) ditangani oleh Alembic
+    (``alembic upgrade head``), bukan ALTER TABLE ad-hoc di sini.
+    """
     try:
-        _ensure_enum_values()
-        _ensure_users_columns()
-        _ensure_clip_user_id_column()
+        _import_models()
         Base.metadata.create_all(bind=engine)
         logger.info("✅ Database PostgreSQL berhasil diinisialisasi via SQLAlchemy.")
     except Exception as e:
@@ -183,6 +204,8 @@ def save_clip(
     desc_en: str,
     user_id: int | None = None,
 ) -> int:
+    from backend.models.clip import Clip
+
     db = SessionLocal()
     try:
         new_clip = Clip(
@@ -207,6 +230,8 @@ def save_clip(
 
 
 def update_clip_score(clip_id: int, score_delta: int):
+    from backend.models.clip import Clip
+
     db = SessionLocal()
     try:
         clip = db.query(Clip).filter(Clip.id == clip_id).first()
@@ -218,6 +243,8 @@ def update_clip_score(clip_id: int, score_delta: int):
 
 
 def get_clip_by_id(clip_id: int):
+    from backend.models.clip import Clip
+
     db = SessionLocal()
     try:
         clip = db.query(Clip).filter(Clip.id == clip_id).first()
@@ -234,6 +261,8 @@ def get_clip_by_id(clip_id: int):
 
 
 def get_top_clips(limit: int = 3):
+    from backend.models.clip import Clip
+
     db = SessionLocal()
     try:
         clips = db.query(Clip).order_by(Clip.score.desc()).limit(limit).all()

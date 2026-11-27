@@ -1,36 +1,27 @@
 """
 services/viral_predictor.py
-=============================
-Viral Score Predictor menggunakan ML (scikit-learn)
+============================
+Viral Score Predictor berbasis aturan (tanpa model ML / tanpa training).
 
-Model memprediksi skor viral 1-10 SEBELUM render, berdasarkan sinyal:
-  - Panjang hook (detik)
-  - Jumlah kata "power words" pada judul
-  - Energi audio rata-rata (RMS dari numpy)
-  - Jumlah wajah terdeteksi
+Skor 1-10 dihitung SEBELUM render dari sinyal:
   - Rasio durasi klip (30-60 det = ideal)
-  - Adanya B-Roll query
-  - Panjang karakter judul
+  - "Power words" pada judul/deskripsi
+  - Panjang judul, B-Roll, energi & pitch audio
+  - Emosi wajah, jumlah wajah, hook ratio
 
-Model:
-  - GradientBoostingRegressor (akurat, ringan)
-  - Auto-train jika belum ada model tersimpan
-  - Retrain otomatis setiap 100 klip baru (continuous learning)
-  - Simpan model ke: models/viral_predictor.pkl
-
-Jika model belum dilatih (cold start):
-  - Gunakan rule-based scoring sebagai fallback
-  - Setiap klip yang dirender memperkaya training data
+Tidak ada artefak ``.pkl``, training data, atau continuous learning model.
+Feedback performa nyata tetap bisa dicatat untuk analitik (bukan training).
 """
 
-import os
-import json
 import math
-import pickle
+import os
+
 import numpy as np
+import pandas as pd
+
+from backend.core.models import ViralFeatures, ViralScore
 from backend.log import logger
 
-# New Imports for Advanced AI
 try:
     import librosa
 except ImportError:
@@ -41,70 +32,15 @@ try:
 except ImportError:
     mp = None
 
-MODEL_DIR = "models"
-MODEL_PATH = os.path.join(MODEL_DIR, "viral_predictor.pkl")
-SCALER_PATH = os.path.join(MODEL_DIR, "scaler.pkl")
-DATA_PATH = os.path.join(MODEL_DIR, "training_data.jsonl")
-RETRAIN_EVERY = 20  # Lebih sering untuk online learning
-
 # 6. Dynamic Viral Thresholding per Niche
 NICHE_THRESHOLDS = {
-    "gaming": 7.5,  # High competition, needs high energy
-    "education": 5.5,  # Lower energy but high retention
-    "podcast": 6.5,  # Average
+    "gaming": 7.5,
+    "education": 5.5,
+    "podcast": 6.5,
     "news": 6.0,
     "entertainment": 7.0,
     "default": 6.5,
 }
-
-HF_REPO_ID = os.environ.get(
-    "HF_MODEL_REPO", ""
-)  # Kosongkan agar user set di .env atau cari manual
-
-
-def _ensure_models_exist():
-    """Mengunduh model dan data dari Hugging Face jika HF_MODEL_REPO diset."""
-    if not HF_REPO_ID:
-        logger.info(
-            "[ViralML] HF_MODEL_REPO tidak diset. Menggunakan mode Cold Start (Latih lokal)."
-        )
-        return
-
-    if not os.path.exists(MODEL_DIR):
-        os.makedirs(MODEL_DIR)
-
-    files_to_check = {
-        "viral_predictor.pkl": MODEL_PATH,
-        "scaler.pkl": SCALER_PATH,
-        "training_data.jsonl": DATA_PATH,
-    }
-
-    for filename, local_path in files_to_check.items():
-        if not os.path.exists(local_path):
-            try:
-                from huggingface_hub import hf_hub_download
-
-                logger.info(
-                    f"[ViralML] Mengunduh {filename} dari Hugging Face ({HF_REPO_ID})..."
-                )
-                downloaded_path = hf_hub_download(
-                    repo_id=HF_REPO_ID, filename=filename, local_dir=MODEL_DIR
-                )
-                # Pastikan path lokal sesuai dengan konstanta kita
-                if downloaded_path != local_path and os.path.exists(downloaded_path):
-                    import shutil
-
-                    shutil.move(downloaded_path, local_path)
-            except Exception as e:
-                logger.warning(
-                    f"[ViralML] Gagal mengunduh {filename}: {e}. Menggunakan fallback/cold-start."
-                )
-
-
-# Jalankan pengecekan saat modul diload
-_ensure_models_exist()
-
-os.makedirs(MODEL_DIR, exist_ok=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Power Words — kata yang terbukti meningkatkan CTR di TikTok/Shorts
@@ -116,365 +52,231 @@ POWER_WORDS_ID = {
     "terungkap",
     "shocking",
     "mengejutkan",
-    "wajib",
-    "tonton",
-    "jangan",
-    "ternyata",
-    "sebenarnya",
+    "luar biasa",
+    "penting",
+    "jangan lewatkan",
+    "wajib tahu",
     "fakta",
-    "nyata",
-    "gila",
-    "keren",
-    "amazing",
+    "trik",
+    "cara",
+    "tips",
+    "rahasia dagang",
+    "tercepat",
+    "termurah",
     "terbaik",
-    "wow",
-    "pov",
-    "jujur",
-    "berani",
-    "kontroversial",
-    "banned",
-    "dilarang",
-    "tersembunyi",
-    "bocoran",
     "eksklusif",
-    "pertama",
-    "terbaru",
-    "trending",
-    "hot",
+    "jarang diketahui",
 }
-
 POWER_WORDS_EN = {
-    "secret",
-    "revealed",
-    "shocking",
     "viral",
-    "hidden",
-    "banned",
-    "truth",
-    "exposed",
-    "pov",
-    "honest",
+    "secret",
+    "shocking",
+    "proven",
+    "revealed",
     "crazy",
     "insane",
-    "must",
-    "watch",
+    "unbelievable",
+    "must watch",
+    "hack",
+    "tips",
+    "trick",
+    "best",
+    "top",
     "exclusive",
     "breaking",
-    "never",
-    "first",
-    "top",
-    "best",
-    "worst",
-    "real",
-    "uncut",
-    "raw",
-    "controversial",
-    "leaked",
+    "ultimate",
+    "crucial",
 }
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# FEATURE EXTRACTION
-# ─────────────────────────────────────────────────────────────────────────────
 
 
 def _count_power_words(text: str) -> int:
-    """Hitung jumlah power words dalam teks."""
-    words = set(text.lower().split())
-    return len(words & (POWER_WORDS_ID | POWER_WORDS_EN))
+    lowered = text.lower()
+    return sum(1 for word in POWER_WORDS_ID | POWER_WORDS_EN if word in lowered)
 
 
-def _duration_score(seconds: float) -> float:
-    """
-    Skor durasi: optimal 45-60 detik = 1.0, terlalu pendek/panjang berkurang.
-    """
-    if seconds <= 0:
+def _duration_score(duration: float) -> float:
+    """ideal 30-60 detik untuk short-form"""
+    if duration <= 0:
         return 0.0
-    # Bell curve centered at 50s, lebar 40s
-    return math.exp(-0.5 * ((seconds - 50) / 25) ** 2)
+    if 20 <= duration <= 60:
+        return 1.0
+    if duration < 20:
+        return max(0.0, duration / 20.0)
+    return max(0.0, 1.0 - (duration - 60) / 90.0)
 
 
-def _audio_features(audio_path: str) -> tuple[float, float]:
-    """
-    5. Deteksi Hook dengan Audio Sentiment (Energy & Pitch)
-    Returns: (energy_score, pitch_score)
-    """
+def _title_length_score(title: str) -> float:
+    length = len(title.strip())
+    if 25 <= length <= 70:
+        return 1.0
+    if length == 0:
+        return 0.0
+    return max(0.0, 1.0 - abs(length - 45) / 60.0)
+
+
+def _audio_energy(audio_path: str) -> float:
     if not audio_path or not os.path.exists(audio_path) or librosa is None:
-        return 0.5, 0.5
-
+        return 0.5
     try:
-        y, sr = librosa.load(audio_path, duration=10)  # Ambil 10 detik pertama (hook)
-
-        # Energy (RMS)
-        rms = librosa.feature.rms(y=y)
-        energy = float(np.mean(rms))
-        energy_score = min(1.0, energy / 0.15)
-
-        # Pitch (Tonnetz/Chroma) - Variasi nada menandakan intonasi yang hidup
-        pitches, magnitudes = librosa.piptrack(y=y, sr=sr)
-        pitch_variation = (
-            float(np.std(pitches[pitches > 0])) if np.any(pitches > 0) else 0.0
-        )
-        pitch_score = min(1.0, pitch_variation / 500.0)
-
-        return energy_score, pitch_score
-    except Exception as e:
-        logger.warning(f"[ViralML] Gagal ekstraksi audio pitch: {e}")
-        return 0.5, 0.5
-
-
-def _face_emotion_score(video_path: str, max_frames=5) -> float:
-    """
-    1. Deteksi Ekspresi Wajah (Vision AI) - Sederhana menggunakan MediaPipe
-    Mendeteksi 'mouth opening' atau 'eye widening' sebagai proksi ekspresi kuat.
-    """
-    if not video_path or not os.path.exists(video_path) or mp is None:
+        y, sr = librosa.load(audio_path, sr=None, mono=True, duration=10)
+        rms = librosa.feature.rms(y=y)[0]
+        return max(0.0, min(1.0, float(np.mean(rms)) * 8.0))
+    except Exception:
         return 0.5
 
+
+def _audio_pitch(audio_path: str) -> float:
+    if not audio_path or not os.path.exists(audio_path) or librosa is None:
+        return 0.5
+    try:
+        y, sr = librosa.load(audio_path, sr=None, mono=True, duration=10)
+        pitches, magnitudes = librosa.piptrack(y=y, sr=sr)
+        valid = pitches[magnitudes > np.median(magnitudes)]
+        if len(valid) == 0:
+            return 0.5
+        pitch = float(np.median(valid[valid > 0])) if np.any(valid > 0) else 0.0
+        return max(0.0, min(1.0, pitch / 500.0))
+    except Exception:
+        return 0.5
+
+
+def _face_features(video_path: str) -> tuple[float, float]:
+    """Return (face_emotion_norm, face_count_norm) via MediaPipe, atau (0,0)."""
+    if not video_path or not os.path.exists(video_path) or mp is None:
+        return 0.0, 0.0
     try:
         import cv2
 
         cap = cv2.VideoCapture(video_path)
-        face_mesh = mp.solutions.face_mesh.FaceMesh(
-            static_image_mode=True, max_num_faces=1
-        )
-
-        scores = []
-        frame_count = 0
-        while cap.isOpened() and frame_count < max_frames:
-            ret, frame = cap.read()
-            if not ret:
-                break
-
-            # Ambil frame setiap detiknya (asumsi video 30fps)
-            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_count * 30)
-
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = face_mesh.process(rgb_frame)
-
-            if results.multi_face_landmarks:
-                # Hitung jarak bibir atas & bawah sebagai proksi 'wow' expression
-                landmarks = results.multi_face_landmarks[0].landmark
-                upper_lip = landmarks[13].y
-                lower_lip = landmarks[14].y
-                mouth_open = abs(upper_lip - lower_lip)
-                scores.append(min(1.0, mouth_open * 10))  # Normalize
-
-            frame_count += 1
-
+        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        step = max(1, frame_count // 10)
+        faces = []
+        with mp.solutions.face_detection.FaceDetection(
+            model_selection=0, min_detection_confidence=0.5
+        ) as detector:
+            for frame_no in range(0, frame_count, step):
+                cap.set(cv2.CAP_PROP_POS_FRAMES, frame_no)
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                result = detector.process(rgb)
+                faces.append(len(result.detections or []))
         cap.release()
-        return float(np.mean(scores)) if scores else 0.5
-    except Exception as e:
-        logger.warning(f"[ViralML] Gagal ekstraksi ekspresi wajah: {e}")
-        return 0.5
+        if not faces:
+            return 0.0, 0.0
+        avg = sum(faces) / len(faces)
+        return min(1.0, avg / 2.0), min(1.0, avg / 3.0)
+    except Exception:
+        return 0.0, 0.0
+
+
+def _hook_ratio(metadata: dict) -> float:
+    text = " ".join(
+        str(metadata.get(key, ""))
+        for key in ("title_en", "title_id", "desc_en", "desc_id", "hook")
+    )
+    score = min(1.0, _count_power_words(text) / 3.0)
+    if "?" in text or "!" in text:
+        score = min(1.0, score + 0.2)
+    return score
 
 
 def extract_features(
     clip_metadata: dict, audio_path: str = "", video_path: str = ""
 ) -> list[float]:
     """
-    Ekstrak feature vector dari metadata klip.
+    Urutan fitur (POSITIONAL — jangan diubah tanpa update rule_based_score,
+    tests, dan mapping /tools/viral-score):
+      0 duration_score, 1 title_power_words, 2 desc_power_words,
+      3 title_length_score, 4 has_broll, 5 audio_energy,
+      6 audio_pitch, 7 face_emotion, 8 face_count_norm, 9 hook_ratio
     """
-    start = float(clip_metadata.get("start_time", 0))
-    end = float(clip_metadata.get("end_time", 0))
-    duration = end - start
-
-    title = str(clip_metadata.get("title_en", clip_metadata.get("title_id", "")))
-    desc = str(clip_metadata.get("desc_en", clip_metadata.get("desc_id", "")))
-
-    title_power = _count_power_words(title)
-    desc_power = _count_power_words(desc)
-    title_len_norm = min(1.0, len(title) / 80.0)
-    has_broll = 1.0 if clip_metadata.get("broll_query") else 0.0
-
-    # 5. Audio Sentiment (Pitch & Energy)
-    energy_score, pitch_score = _audio_features(audio_path)
-
-    # 1. Vision Emotion Score
-    emotion_score = _face_emotion_score(video_path)
-
-    face_count = min(3.0, float(clip_metadata.get("face_count", 1))) / 3.0
-    dur_score = _duration_score(duration)
-    hook_ratio = min(1.0, duration / 60.0)
-
+    start = float(clip_metadata.get("start_time", 0) or 0)
+    end = float(clip_metadata.get("end_time", 0) or 0)
+    duration = max(0.0, end - start)
+    title = str(clip_metadata.get("title_en") or clip_metadata.get("title_id") or "")
+    desc = str(clip_metadata.get("desc_en") or clip_metadata.get("desc_id") or "")
+    face_emotion, face_count = _face_features(video_path)
     return [
-        dur_score,
-        float(title_power),
-        float(desc_power),
-        title_len_norm,
-        has_broll,
-        energy_score,
-        pitch_score,
-        emotion_score,
+        _duration_score(duration),
+        float(min(3, _count_power_words(title))),
+        float(min(3, _count_power_words(desc))),
+        _title_length_score(title),
+        1.0 if clip_metadata.get("broll_query") else 0.0,
+        _audio_energy(audio_path),
+        _audio_pitch(audio_path),
+        face_emotion,
         face_count,
-        hook_ratio,
+        _hook_ratio(clip_metadata),
     ]
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# RULE-BASED FALLBACK (Cold Start)
-# ─────────────────────────────────────────────────────────────────────────────
+# Bobot default mengikuti urutan positional ViralFeatures.
+DEFAULT_SCORE_WEIGHTS = np.array([2.0, 0.8, 0.4, 1.0, 0.8, 1.5, 1.0, 1.5, 0.4, 1.2])
+SCORE_WEIGHTS = DEFAULT_SCORE_WEIGHTS
+WEIGHT_ENV = "VIRAL_SCORE_WEIGHTS"
+WEIGHT_MIN, WEIGHT_MAX = 0.0, 3.0
 
 
-def rule_based_score(features: list[float]) -> float:
-    """
-    Skor berbasis aturan eksplisit untuk cold start sebelum ML siap.
-    """
-    (
-        dur_score,
-        title_pw,
-        desc_pw,
-        title_len,
-        broll,
-        audio_e,
-        audio_p,
-        face_e,
-        faces,
-        hook_r,
-    ) = features
-
-    score = 0.0
-    score += dur_score * 2.0
-    score += min(title_pw, 3) * 0.8
-    score += title_len * 1.0
-    score += broll * 0.8
-    score += audio_e * 1.5
-    score += audio_p * 1.0  # New Feature: Pitch
-    score += face_e * 1.5  # New Feature: Face Emotion
-    score += faces * 0.4
-
-    return max(1.0, min(10.0, score))
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# ML MODEL MANAGEMENT
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-def _load_model():
-    """Load model dan scaler."""
-    model, scaler = None, None
-    if os.path.exists(MODEL_PATH):
-        try:
-            with open(MODEL_PATH, "rb") as f:
-                model = pickle.load(f)
-            if os.path.exists(SCALER_PATH):
-                with open(SCALER_PATH, "rb") as f:
-                    scaler = pickle.load(f)
-        except Exception as e:
-            logger.error(f"[ViralML] Gagal load model: {e}")
-    return model, scaler
-
-
-def _save_model(model, scaler) -> None:
-    """Simpan model dan scaler."""
-    with open(MODEL_PATH, "wb") as f:
-        pickle.dump(model, f)
-    with open(SCALER_PATH, "wb") as f:
-        pickle.dump(scaler, f)
-
-
-def _load_training_data() -> tuple[list, list]:
-    """Load semua training data dari JSONL file."""
-    X, y = [], []
-    if not os.path.exists(DATA_PATH):
-        return X, y
-    with open(DATA_PATH, "r", encoding="utf-8") as f:
-        for line in f:
-            try:
-                obj = json.loads(line.strip())
-                X.append(obj["features"])
-                y.append(obj["viral_score"])
-            except (json.JSONDecodeError, KeyError):
-                continue
-    return X, y
-
-
-def save_training_sample(features: list[float], viral_score: float) -> None:
-    """
-    Simpan satu sample ke training data.
-    Dipanggil setelah user memberikan feedback (thumbs up/down)
-    atau setelah rendering klip berhasil.
-    """
-    sample = {"features": features, "viral_score": float(viral_score)}
-    with open(DATA_PATH, "a", encoding="utf-8") as f:
-        f.write(json.dumps(sample) + "\n")
-
-    # Check apakah perlu retrain
-    X, y = _load_training_data()
-    if len(X) >= RETRAIN_EVERY and len(X) % RETRAIN_EVERY == 0:
-        logger.info(f"[ViralML] {len(X)} samples tersedia, melakukan retrain...")
-        train_model(X, y)
-
-
-def train_model(X: list, y: list) -> None:
-    """
-    8. Reinforcement Learning (Online Training) dengan SGDRegressor.
-    Memungkinkan model belajar terus-menerus (incremental).
-    """
+def resolve_score_weights(env: dict | None = None) -> np.ndarray:
+    """Bobot dari env `VIRAL_SCORE_WEIGHTS` (10 angka koma). Invalid → default."""
+    source = env if env is not None else os.environ
+    raw = str(source.get(WEIGHT_ENV, "")).strip()
+    if not raw:
+        return DEFAULT_SCORE_WEIGHTS.copy()
     try:
-        from sklearn.linear_model import SGDRegressor
-        from sklearn.preprocessing import StandardScaler
-
-        X_np = np.array(X)
-        y_np = np.array(y)
-
-        if len(X) < 5:
-            return
-
-        model, scaler = _load_model()
-        if scaler is None:
-            scaler = StandardScaler()
-            X_scaled = scaler.fit_transform(X_np)
-        else:
-            X_scaled = scaler.transform(X_np)
-
-        if model is None:
-            # First time training
-            model = SGDRegressor(max_iter=1000, tol=1e-3, random_state=42)
-            model.fit(X_scaled, y_np)
-        else:
-            # 8. Online Learning: partial_fit menambah data baru ke model lama
-            model.partial_fit(X_scaled, y_np)
-
-        _save_model(model, scaler)
-        logger.info(f"[ViralML] Online learning berhasil dengan {len(X)} sample baru.")
-
-    except Exception as e:
-        logger.error(f"[ViralML] Training error: {e}")
+        values = [float(part.strip()) for part in raw.split(",")]
+    except ValueError:
+        logger.warning(f"[ViralScore] {WEIGHT_ENV} bukan angka; pakai default.")
+        return DEFAULT_SCORE_WEIGHTS.copy()
+    if len(values) != 10 or any(
+        not WEIGHT_MIN <= value <= WEIGHT_MAX for value in values
+    ):
+        logger.warning(
+            f"[ViralScore] {WEIGHT_ENV} harus 10 angka {WEIGHT_MIN}-{WEIGHT_MAX}; pakai default."
+        )
+        return DEFAULT_SCORE_WEIGHTS.copy()
+    return np.asarray(values, dtype=float)
 
 
-# 10. Cost-Benefit ML (Token Optimization)
+def rule_based_score(features: list[float] | ViralFeatures) -> float:
+    """Skor 1-10 via dot-product numpy (satu-satunya mode scoring)."""
+    vector = (
+        features.as_array()
+        if isinstance(features, ViralFeatures)
+        else np.asarray(features, dtype=float)
+    )
+    if vector.shape != (10,):
+        raise ValueError("Fitur viral harus tepat 10 nilai")
+    # power words dibatasi maksimal 3 (indeks 1 & 2)
+    vector = vector.copy()
+    vector[1:3] = np.minimum(vector[1:3], 3.0)
+    return float(np.clip(np.dot(vector, resolve_score_weights()), 1.0, 10.0))
+
+
 def pre_check_viral_potential(text_summary: str) -> bool:
     """
-    Cek potensi viral hanya dari teks ringkasan (murah)
-    sebelum memanggil video processing yang mahal.
+    Pre-filter teks ringan sebelum pipeline video yang mahal.
+
+    Hanya menolak bila transkrip benar-benar kosong. Teks apa pun yang
+    tersedia (walau pendek) tetap diproses — jangan memblokir pipeline
+    hanya karena tidak ada "power words".
     """
-    score = 0.0
-    text = text_summary.lower()
-    score += _count_power_words(text) * 1.5
-
-    # Deteksi 'Hook' intrinsik dalam teks (pertanyaan, angka, janji)
-    hook_indicators = ["?", "!", "rahasia", "bagaimana", "cara", "tips"]
-    for ind in hook_indicators:
-        if ind in text:
+    text = text_summary.lower().strip()
+    if not text:
+        logger.warning("[ViralScore] Pre-check: transkrip kosong, lewati video.")
+        return False
+    score = _count_power_words(text) * 1.5
+    for indicator in ["?", "!", "rahasia", "bagaimana", "cara", "tips"]:
+        if indicator in text:
             score += 1.0
-
-    logger.info(f"[ViralML] Pre-check potential score: {score:.1f}")
-    return score >= 3.0  # Threshold rendah untuk pre-filter
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# FUNGSI UTAMA
-# ─────────────────────────────────────────────────────────────────────────────
-
-# Cache model dan scaler di memory
-_cached_model = None
-_cached_scaler = None
+    logger.info(f"[ViralScore] Pre-check potential score: {score:.1f} (diterima)")
+    return True
 
 
 def get_niche_threshold(niche: str) -> float:
-    """6. Ambil threshold dinamis sesuai niche."""
+    """Ambil threshold dinamis sesuai niche."""
     return NICHE_THRESHOLDS.get(niche.lower(), NICHE_THRESHOLDS["default"])
 
 
@@ -483,58 +285,45 @@ def predict_viral_score(
     audio_path: str = "",
     video_path: str = "",
     niche: str = "default",
+    threshold: float | None = None,
 ) -> dict:
     """
-    Prediksi skor viral SEBELUM render dengan fitur canggih.
+    Prediksi skor viral SEBELUM render (tanpa model, tanpa training).
+
+    ``threshold`` menimpa threshold default per-niche bila diberikan.
     """
-    global _cached_model, _cached_scaler
+    feature_values = extract_features(clip_metadata, audio_path, video_path)
+    features = ViralFeatures.from_list(feature_values)
+    if threshold is None:
+        threshold = get_niche_threshold(niche)
+    score = rule_based_score(features)
+    result = ViralScore(
+        score=round(score, 2),
+        threshold=threshold,
+        should_render=score >= threshold,
+        features=features,
+    )
 
-    features = extract_features(clip_metadata, audio_path, video_path)
-    threshold = get_niche_threshold(niche)
-
-    if _cached_model is None:
-        _cached_model, _cached_scaler = _load_model()
-
-    if _cached_model is not None and _cached_scaler is not None:
-        try:
-            X_scaled = _cached_scaler.transform([features])
-            score_raw = float(_cached_model.predict(X_scaled)[0])
-            score = max(1.0, min(10.0, score_raw))
-            confidence = "ml_model_online"
-        except Exception:
-            score = rule_based_score(features)
-            confidence = "rule_based_fallback"
-    else:
-        score = rule_based_score(features)
-        confidence = "rule_based"
-
-    result = {
+    return {
         **clip_metadata,
-        "ml_viral_score": round(score, 2),
-        "ml_should_render": score >= threshold,
-        "ml_threshold_used": threshold,
-        "ml_confidence": confidence,
-        "ml_features": features,
+        "ml_viral_score": result.score,
+        "ml_should_render": result.should_render,
+        "ml_threshold_used": result.threshold,
+        "ml_confidence": result.confidence,
+        "ml_features": feature_values,
     }
-    return result
 
 
-# 9. Automated A/B Testing untuk Hook
 def select_best_hook_variant(clip_metadata: dict, variants: list[str]) -> dict:
-    """
-    Pilih variasi judul (hook) terbaik menggunakan simulasi ML.
-    """
+    """Pilih variasi judul (hook) dengan skor aturan tertinggi."""
     results = []
     for var in variants:
         temp_meta = clip_metadata.copy()
         temp_meta["title_en"] = var
-        pred = predict_viral_score(temp_meta)
-        results.append(pred)
-
-    # Ambil yang skornya paling tinggi
+        results.append(predict_viral_score(temp_meta))
     best = max(results, key=lambda x: x["ml_viral_score"])
     logger.info(
-        f"[ViralML] A/B Test Hook: Terpilih '{best['title_en']}' dengan score {best['ml_viral_score']}"
+        f"[ViralScore] A/B Test Hook: '{best['title_en']}' score {best['ml_viral_score']}"
     )
     return best
 
@@ -545,37 +334,21 @@ def batch_predict_and_filter(
     threshold: float = 6.5,
     always_keep_best: int = 1,
 ) -> list[dict]:
-    """
-    Prediksi semua klip, filter yang layak render.
-
-    Args:
-        clips: List clip metadata dari AI pipeline
-        audio_path: Path audio untuk ekstraksi energi
-        threshold: Minimal skor untuk dirender
-        always_keep_best: Selalu keep N klip terbaik meskipun di bawah threshold
-                          (mencegah tidak ada yang dirender sama sekali)
-
-    Returns:
-        List klip yang lolos filter, urut dari skor tertinggi
-    """
+    """Skor & filter klip kandidat (rule-based), urut dari skor tertinggi."""
     if not clips:
         return []
-
-    logger.info(f"\n[ViralML] Mengevaluasi {len(clips)} klip kandidat...")
-
-    scored = [predict_viral_score(c, audio_path=audio_path) for c in clips]
-    scored.sort(key=lambda x: x["ml_viral_score"], reverse=True)
-
-    should_render = [c for c in scored if c["ml_should_render"]]
-
-    # Pastikan minimal N klip terbaik tetap dirender
-    if len(should_render) < always_keep_best:
-        should_render = scored[:always_keep_best]
-
+    scored = [
+        predict_viral_score(c, audio_path=audio_path, threshold=threshold)
+        for c in clips
+    ]
+    frame = pd.DataFrame(scored).sort_values("ml_viral_score", ascending=False)
+    keep = frame[frame["ml_should_render"]]
+    if len(keep) < always_keep_best:
+        keep = frame.head(always_keep_best)
+    should_render = keep.to_dict("records")
     skipped = len(clips) - len(should_render)
     logger.info(
-        f"[ViralML] Hasil filter: {len(should_render)}/{len(clips)} klip akan dirender "
-        f"({skipped} diskip, hemat {skipped * 100 // len(clips) if clips else 0}% resource)"
+        f"[ViralScore] {len(should_render)}/{len(clips)} klip lolos ({skipped} diskip)"
     )
     return should_render
 
@@ -587,14 +360,8 @@ def _score_from_real_performance(
     likes = max(0, int(actual_likes))
     shares = max(0, int(actual_shares))
 
-    # Views mendorong base score
     view_score = min(7.0, math.log10(views + 1) * 1.8)
-
-    # Engagement rate (likes + shares*2) menambah kualitas
-    if views > 0:
-        engagement_rate = (likes + (shares * 2)) / views
-    else:
-        engagement_rate = 0.0
+    engagement_rate = ((likes + shares * 2) / views) if views > 0 else 0.0
     engagement_score = min(3.0, engagement_rate * 60.0)
 
     return max(1.0, min(10.0, 1.0 + view_score + engagement_score))
@@ -606,69 +373,101 @@ def record_actual_performance(
     actual_likes: int,
     actual_shares: int = 0,
 ) -> None:
-    """
-    Catat performa klip sesungguhnya untuk continuous learning.
-    Dipanggil setelah post dipublish dan mendapat data engagement.
-
-    Skor actual dibuat dari kombinasi views + engagement (likes/shares).
-    """
-    from backend.utils.db import SessionLocal
+    """Catat performa nyata ke log untuk analitik (bukan training model)."""
     from backend.models.clip import Clip
+    from backend.models.feedback import PerformanceFeedbackRecord
+    from backend.utils.db import SessionLocal
 
     db = SessionLocal()
     try:
         clip = db.query(Clip).filter(Clip.id == clip_id).first()
         if not clip:
-            logger.warning(
-                f"[ViralML] Clip id={clip_id} tidak ditemukan. Feedback diabaikan."
-            )
+            logger.warning(f"[ViralScore] Clip id={clip_id} tidak ditemukan.")
             return
-
-        clip_metadata = {
-            "start_time": clip.start_time,
-            "end_time": clip.end_time,
-            "title_en": clip.title_en,
-            "desc_en": clip.desc_en,
-            "broll_query": "",
-        }
-        features = extract_features(clip_metadata, audio_path="")
         score = _score_from_real_performance(actual_views, actual_likes, actual_shares)
-        save_training_sample(features, score)
-
-        logger.info(
-            f"[ViralML] Feedback clip={clip_id}: views={actual_views}, likes={actual_likes}, "
-            f"shares={actual_shares} -> score={score:.2f} (sample tersimpan)"
+        db.add(
+            PerformanceFeedbackRecord(
+                clip_id=clip_id,
+                actual_views=actual_views,
+                actual_likes=actual_likes,
+                actual_shares=actual_shares,
+                predicted_score=float(clip.score or 0.0),
+                real_score=score,
+            )
         )
-    except Exception as e:
-        logger.error(f"[ViralML] Gagal merekam performa clip={clip_id}: {e}")
+        db.commit()
+        logger.info(
+            f"[ViralScore] Feedback clip={clip_id}: views={actual_views}, "
+            f"likes={actual_likes}, shares={actual_shares} -> score={score:.2f}"
+        )
+    except Exception as exc:
+        logger.error(f"[ViralScore] Gagal mencatat feedback clip={clip_id}: {exc}")
     finally:
         db.close()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# SAAS FEATURE: NICHE TRENDS HUNTER
-# ─────────────────────────────────────────────────────────────────────────────
+def calibration_report(limit: int = 500, db=None) -> dict:
+    """Korelasi skor prediksi vs performa nyata (pandas, tanpa training)."""
+    from backend.models.feedback import PerformanceFeedbackRecord
+    from backend.utils.db import SessionLocal
 
+    owns_db = db is None
+    session = db or SessionLocal()
+    try:
+        rows = (
+            session.query(PerformanceFeedbackRecord)
+            .order_by(PerformanceFeedbackRecord.created_at.desc())
+            .limit(limit)
+            .all()
+        )
+        frame = pd.DataFrame(
+            [
+                {
+                    "predicted_score": float(row.predicted_score),
+                    "real_score": float(row.real_score),
+                }
+                for row in rows
+            ]
+        )
+    finally:
+        if owns_db:
+            session.close()
 
-def get_niche_trends(niche: str = "podcast"):
-    """
-    SaaS Feature 8: Viral Niche Trends Hunter.
-    Automatically fetches trending topics in a specific niche.
-    """
-    mock_trends = {
-        "podcast": ["Health Optimization", "AI Future", "Remote Work Culture"],
-        "gaming": ["GTA 6 Leaks", "Elden Ring DLC", "Indie Game Gems"],
-        "finance": ["Crypto Bull Run", "Passive Income 2024", "Real Estate Crash"],
-    }
+    samples = int(len(frame))
+    if samples < 2:
+        return {
+            "status": "success",
+            "samples": samples,
+            "correlation": None,
+            "mean_predicted": None,
+            "mean_actual": None,
+            "buckets": [],
+            "note": "Minimal 2 feedback diperlukan untuk korelasi.",
+        }
 
-    selected_trends = mock_trends.get(
-        niche.lower(), ["Modern Productivity", "Digital Nomad"]
+    correlation = float(frame["predicted_score"].corr(frame["real_score"]))
+    if pd.isna(correlation):
+        correlation = 0.0
+    cuts = pd.cut(
+        frame["predicted_score"], bins=[0, 4, 7, 10], labels=["1-4", "5-7", "8-10"]
     )
-
-    logger.info(
-        f"👑 SaaS: Trends Hunter found {len(selected_trends)} viral topics for niche: {niche}"
-    )
-    return [
-        {"topic": t, "potential_score": 0.85 + (0.05 * i), "source": "YouTube Trending"}
-        for i, t in enumerate(selected_trends)
+    grouped = frame.groupby(cuts, observed=False)["real_score"].agg(["count", "mean"])
+    buckets = [
+        {
+            "bucket": str(label),
+            "count": int(row["count"]),
+            "mean_actual": round(float(row["mean"]), 2)
+            if pd.notna(row["mean"])
+            else None,
+        }
+        for label, row in grouped.iterrows()
     ]
+    return {
+        "status": "success",
+        "samples": samples,
+        "correlation": round(correlation, 3),
+        "mean_predicted": round(float(frame["predicted_score"].mean()), 2),
+        "mean_actual": round(float(frame["real_score"].mean()), 2),
+        "buckets": buckets,
+        "note": "Analitik rule-based; tidak ada model/training. Bobot diubah via VIRAL_SCORE_WEIGHTS.",
+    }

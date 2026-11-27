@@ -1,0 +1,73 @@
+name: CD — Source artifact
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Gate + release source zip
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:19.0-alpine3.24
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: clip_ai
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d clip_ai"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      GATE_DATABASE_URL: postgresql://postgres:password@localhost:5432/clip_ai
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv + Python 3.14
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.14'
+          enable-cache: true
+
+      - name: Sync dependencies (frozen lockfile)
+        run: uv sync --frozen
+
+      - name: Run Python gate
+        run: uv run python scripts/gate.py
+
+      - name: Build source artifact (tanpa .env / media / artefak)
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          mkdir -p dist
+          git archive --format=zip --prefix="clip-ai-${REF_NAME}/" -o "dist/clip-ai-${REF_NAME}-source.zip" HEAD
+          ls -lh dist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-${{ github.ref_name }}
+          path: dist/*.zip
+          if-no-files-found: error
+
+      - name: Attach artifact to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          gh release create "$REF_NAME" \
+            --title "$REF_NAME" \
+            --generate-notes \
+            "dist/clip-ai-${REF_NAME}-source.zip" || \
+          gh release upload "$REF_NAME" \
+            "dist/clip-ai-${REF_NAME}-source.zip" --clobber

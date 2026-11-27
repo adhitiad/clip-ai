@@ -1,0 +1,48 @@
+# ZAP automation plan — Clip AI (lokal, project sendiri)
+# Jalankan: cd "C:\Program Files\ZAP\Zed Attack Proxy"
+#   java -jar zap-2.17.0.jar -cmd -autorun ..\path\zap-scan.yaml
+
+env:
+  contexts:
+    - name: clip-ai-local
+      urls:
+        - http://127.0.0.1:8000
+      includePaths:
+        - ^http://127\.0\.0\.1:8000/(auth|agent|clips|niche|tasks|tools|dashboard|ops|settings|youtube|docs|openapi).*
+      excludePaths:
+        - ^http://127\.0\.0\.1:8000/$
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    progressToStdout: true
+    maxDuration: 900
+
+jobs:
+  - type: openapi
+    parameters:
+      apiUrl: http://127.0.0.1:8000/openapi.json
+      context: clip-ai-local
+      targetUrl: http://127.0.0.1:8000
+
+  - type: spider
+    parameters:
+      context: clip-ai-local
+      maxDuration: 3
+
+  - type: activeScan
+    parameters:
+      context: clip-ai-local
+      maxScanDurationInMins: 10
+      maxRuleDurationInMins: 2
+
+  - type: report
+    parameters:
+      template: traditional-md
+      reportFile: ..\path\zap-report.md
+      reportTitle: Clip AI - ZAP Scan
+
+  - type: report
+    parameters:
+      template: traditional-json
+      reportFile: ..\path\zap-report.json
+      reportTitle: Clip AI - ZAP Scan

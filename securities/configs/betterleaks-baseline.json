@@ -1,0 +1,660 @@
+[
+  {
+    "RuleID": "generic-credential-uri",
+    "Description": "Detected a password embedded in a service connection URI, which may expose direct access to the referenced service.",
+    "StartLine": 8,
+    "EndLine": 8,
+    "StartColumn": 22,
+    "EndColumn": 66,
+    "Match": "postgresql://user:password@localhost/clip_ai\"",
+    "Secret": "password",
+    "CaptureGroups": {
+      "host": "localhost",
+      "password": "password",
+      "scheme": "postgresql",
+      "uri": "postgresql://user:password@localhost/clip_ai",
+      "username": "user"
+    },
+    "Attributes": {
+      "confidence": "low",
+      "git.author_email": "68454354+adhitiad@users.noreply.github.com",
+      "git.author_name": "adhitiad",
+      "git.date": "2026-11-24T02:11:11Z",
+      "git.message": "feat: Add utility modules for AI processing, video handling, and database management\n\n- Implemented `ai_extras.py` for text censorship and viral score calculation using Groq.\n- Created `broll.py` for downloading relevant B-Roll videos based on keywords.\n- Developed `captioning.py` to generate SRT files from audio transcriptions.\n- Added `db.py` for PostgreSQL database interactions, including user and clip management.\n- Introduced `exa_search.py` for searching news articles using Exa Search SDK.\n- Created `groq_ai.py` for handling audio transcriptions and hook generation.\n- Added `hf.py` for future Hugging Face integrations.\n- Implemented `rss_google.py` for fetching and processing Google Trends and YouTube RSS feeds.\n- Developed `youtube.py` for downloading YouTube subtitles and audio segments.\n- Added `worker.py` for Celery task management to process video clips asynchronously.",
+      "git.platform": "github",
+      "git.remote_url": "https://github.com/adhitiad/clip-ai",
+      "git.sha": "83b423fab730f3383deb0e08609b28f7b6f5abdf",
+      "path": "backend/utils/db.py",
+      "resource": "git.patch_content",
+      "url": "https://github.com/adhitiad/clip-ai/blob/83b423fab730f3383deb0e08609b28f7b6f5abdf/backend/utils/db.py#L8"
+    },
+    "Tags": [],
+    "Fingerprint": "83b423fab730f3383deb0e08609b28f7b6f5abdf:backend/utils/db.py:generic-credential-uri:8",
+    "File": "backend/utils/db.py",
+    "SymlinkFile": "",
+    "Commit": "83b423fab730f3383deb0e08609b28f7b6f5abdf",
+    "Entropy": 2.75,
+    "Author": "adhitiad",
+    "Email": "68454354+adhitiad@users.noreply.github.com",
+    "Date": "2026-11-24T02:11:11Z",
+    "Message": "feat: Add utility modules for AI processing, video handling, and database management\n\n- Implemented `ai_extras.py` for text censorship and viral score calculation using Groq.\n- Created `broll.py` for downloading relevant B-Roll videos based on keywords.\n- Developed `captioning.py` to generate SRT files from audio transcriptions.\n- Added `db.py` for PostgreSQL database interactions, including user and clip management.\n- Introduced `exa_search.py` for searching news articles using Exa Search SDK.\n- Created `groq_ai.py` for handling audio transcriptions and hook generation.\n- Added `hf.py` for future Hugging Face integrations.\n- Implemented `rss_google.py` for fetching and processing Google Trends and YouTube RSS feeds.\n- Developed `youtube.py` for downloading YouTube subtitles and audio segments.\n- Added `worker.py` for Celery task management to process video clips asynchronously."
+  },
+  {
+    "RuleID": "generic-credential-uri",
+    "Description": "Detected a password embedded in a service connection URI, which may expose direct access to the referenced service.",
+    "StartLine": 7,
+    "EndLine": 7,
+    "StartColumn": 48,
+    "EndColumn": 92,
+    "Match": "postgresql://user:password@localhost/clip_ai\"",
+    "Secret": "password",
+    "CaptureGroups": {
+      "host": "localhost",
+      "password": "password",
+      "scheme": "postgresql",
+      "uri": "postgresql://user:password@localhost/clip_ai",
+      "username": "user"
+    },
+    "Attributes": {
+      "confidence": "low",
+      "git.author_email": "adhitiadwima@gmail.com",
+      "git.author_name": "adhitiad",
+      "git.date": "2026-04-20T08:08:59Z",
+      "git.message": "feat: implement video processing engine and database infrastructure for automated clip generation",
+      "git.platform": "github",
+      "git.remote_url": "https://github.com/adhitiad/clip-ai",
+      "git.sha": "e6bdcdf10fc198f4aed17a80707d7762b6c7594c",
+      "path": "inspect_db.py",
+      "resource": "git.patch_content",
+      "url": "https://github.com/adhitiad/clip-ai/blob/e6bdcdf10fc198f4aed17a80707d7762b6c7594c/inspect_db.py#L7"
+    },
+    "Tags": [],
+    "Fingerprint": "e6bdcdf10fc198f4aed17a80707d7762b6c7594c:inspect_db.py:generic-credential-uri:7",
+    "File": "inspect_db.py",
+    "SymlinkFile": "",
+    "Commit": "e6bdcdf10fc198f4aed17a80707d7762b6c7594c",
+    "Entropy": 2.75,
+    "Author": "adhitiad",
+    "Email": "adhitiadwima@gmail.com",
+    "Date": "2026-04-20T08:08:59Z",
+    "Message": "feat: implement video processing engine and database infrastructure for automated clip generation"
+  },
+  {
+    "RuleID": "generic-credential-uri",
+    "Description": "Detected a password embedded in a service connection URI, which may expose direct access to the referenced service.",
+    "StartLine": 86,
+    "EndLine": 86,
+    "StartColumn": 14,
+    "EndColumn": 69,
+    "Match": "postgresql://postgres:password@localhost:5432/clipper_db",
+    "Secret": "password",
+    "CaptureGroups": {
+      "host": "localhost",
+      "password": "password",
+      "scheme": "postgresql",
+      "uri": "postgresql://postgres:password@localhost:5432/clipper_db",
+      "username": "postgres"
+    },
+    "Attributes": {
+      "confidence": "low",
+      "git.author_email": "adhitiadwima@gmail.com",
+      "git.author_name": "adhitiad",
+      "git.date": "2026-04-21T08:49:35Z",
+      "git.message": "feat: implement micro-investment system with valuation tracking, share purchasing, and shareholder management endpoints",
+      "git.platform": "github",
+      "git.remote_url": "https://github.com/adhitiad/clip-ai",
+      "git.sha": "6e62a66f116d5506cdbb66b893e10790544f6745",
+      "path": "README.md",
+      "resource": "git.patch_content",
+      "url": "https://github.com/adhitiad/clip-ai/blob/6e62a66f116d5506cdbb66b893e10790544f6745/README.md?plain=1#L86"
+    },
+    "Tags": [],
+    "Fingerprint": "6e62a66f116d5506cdbb66b893e10790544f6745:README.md:generic-credential-uri:86",
+    "File": "README.md",
+    "SymlinkFile": "",
+    "Commit": "6e62a66f116d5506cdbb66b893e10790544f6745",
+    "Entropy": 2.75,
+    "Author": "adhitiad",
+    "Email": "adhitiadwima@gmail.com",
+    "Date": "2026-04-21T08:49:35Z",
+    "Message": "feat: implement micro-investment system with valuation tracking, share purchasing, and shareholder management endpoints"
+  },
+  {
+    "RuleID": "generic-credential-uri",
+    "Description": "Detected a password embedded in a service connection URI, which may expose direct access to the referenced service.",
+    "StartLine": 6,
+    "EndLine": 6,
+    "StartColumn": 48,
+    "EndColumn": 92,
+    "Match": "postgresql://user:password@localhost/clip_ai\"",
+    "Secret": "password",
+    "CaptureGroups": {
+      "host": "localhost",
+      "password": "password",
+      "scheme": "postgresql",
+      "uri": "postgresql://user:password@localhost/clip_ai",
+      "username": "user"
+    },
+    "Attributes": {
+      "confidence": "low",
+      "git.author_email": "adhitiadwima@gmail.com",
+      "git.author_name": "adhitiad",
+      "git.date": "2026-04-19T15:09:59Z",
+      "git.message": "feat: implement automated AI video pipeline with niche discovery, YouTube search, and Celery-based processing",
+      "git.platform": "github",
+      "git.remote_url": "https://github.com/adhitiad/clip-ai",
+      "git.sha": "f4ef345c9b90a95db6a5a3e3c745c17f91d5cc69",
+      "path": "utils/db.py",
+      "resource": "git.patch_content",
+      "url": "https://github.com/adhitiad/clip-ai/blob/f4ef345c9b90a95db6a5a3e3c745c17f91d5cc69/utils/db.py#L6"
+    },
+    "Tags": [],
+    "Fingerprint": "f4ef345c9b90a95db6a5a3e3c745c17f91d5cc69:utils/db.py:generic-credential-uri:6",
+    "File": "utils/db.py",
+    "SymlinkFile": "",
+    "Commit": "f4ef345c9b90a95db6a5a3e3c745c17f91d5cc69",
+    "Entropy": 2.75,
+    "Author": "adhitiad",
+    "Email": "adhitiadwima@gmail.com",
+    "Date": "2026-04-19T15:09:59Z",
+    "Message": "feat: implement automated AI video pipeline with niche discovery, YouTube search, and Celery-based processing"
+  },
+  {
+    "RuleID": "generic-credential-uri",
+    "Description": "Detected a password embedded in a service connection URI, which may expose direct access to the referenced service.",
+    "StartLine": 72,
+    "EndLine": 72,
+    "StartColumn": 14,
+    "EndColumn": 53,
+    "Match": "postgresql://user:pass@localhost/db_name",
+    "Secret": "pass",
+    "CaptureGroups": {
+      "host": "localhost",
+      "password": "pass",
+      "scheme": "postgresql",
+      "uri": "postgresql://user:pass@localhost/db_name",
+      "username": "user"
+    },
+    "Attributes": {
+      "confidence": "low",
+      "git.author_email": "adhitiadwima@gmail.com",
+      "git.author_name": "adhitiad",
+      "git.date": "2026-04-19T15:09:59Z",
+      "git.message": "feat: implement automated AI video pipeline with niche discovery, YouTube search, and Celery-based processing",
+      "git.platform": "github",
+      "git.remote_url": "https://github.com/adhitiad/clip-ai",
+      "git.sha": "f4ef345c9b90a95db6a5a3e3c745c17f91d5cc69",
+      "path": "README.md",
+      "resource": "git.patch_content",
+      "url": "https://github.com/adhitiad/clip-ai/blob/f4ef345c9b90a95db6a5a3e3c745c17f91d5cc69/README.md?plain=1#L72"
+    },
+    "Tags": [],
+    "Fingerprint": "f4ef345c9b90a95db6a5a3e3c745c17f91d5cc69:README.md:generic-credential-uri:72",
+    "File": "README.md",
+    "SymlinkFile": "",
+    "Commit": "f4ef345c9b90a95db6a5a3e3c745c17f91d5cc69",
+    "Entropy": 1.5,
+    "Author": "adhitiad",
+    "Email": "adhitiadwima@gmail.com",
+    "Date": "2026-04-19T15:09:59Z",
+    "Message": "feat: implement automated AI video pipeline with niche discovery, YouTube search, and Celery-based processing"
+  },
+  {
+    "RuleID": "generic-password",
+    "Description": "Detected a potential hardcoded password literal, which may expose account credentials.",
+    "StartLine": 49,
+    "EndLine": 49,
+    "StartColumn": 10,
+    "EndColumn": 34,
+    "Match": "password\": \"Owner@12345\",",
+    "Secret": "Owner@12345",
+    "Attributes": {
+      "confidence": "low",
+      "git.author_email": "adhitiadwima@gmail.com",
+      "git.author_name": "adhitiad",
+      "git.date": "2026-04-20T08:08:59Z",
+      "git.message": "feat: implement video processing engine and database infrastructure for automated clip generation",
+      "git.platform": "github",
+      "git.remote_url": "https://github.com/adhitiad/clip-ai",
+      "git.sha": "e6bdcdf10fc198f4aed17a80707d7762b6c7594c",
+      "path": "scripts/seed_db.py",
+      "resource": "git.patch_content",
+      "url": "https://github.com/adhitiad/clip-ai/blob/e6bdcdf10fc198f4aed17a80707d7762b6c7594c/scripts/seed_db.py#L49"
+    },
+    "Tags": [],
+    "ComponentSets": [
+      {
+        "components": [
+          {
+            "RuleID": "generic-username",
+            "Optional": true,
+            "StartLine": 47,
+            "EndLine": 47,
+            "StartColumn": 9,
+            "EndColumn": 36,
+            "Match": "\"email\": \"owner@clipai.dev\",",
+            "Secret": "owner@clipai.dev"
+          }
+        ]
+      },
+      {
+        "components": [
+          {
+            "RuleID": "generic-username",
+            "Optional": true,
+            "StartLine": 48,
+            "EndLine": 48,
+            "StartColumn": 9,
+            "EndColumn": 28,
+            "Match": "\"username\": \"owner\",",
+            "Secret": "owner"
+          }
+        ]
+      }
+    ],
+    "Fingerprint": "e6bdcdf10fc198f4aed17a80707d7762b6c7594c:scripts/seed_db.py:generic-password:49",
+    "File": "scripts/seed_db.py",
+    "SymlinkFile": "",
+    "Commit": "e6bdcdf10fc198f4aed17a80707d7762b6c7594c",
+    "Entropy": 3.4594316,
+    "Author": "adhitiad",
+    "Email": "adhitiadwima@gmail.com",
+    "Date": "2026-04-20T08:08:59Z",
+    "Message": "feat: implement video processing engine and database infrastructure for automated clip generation"
+  },
+  {
+    "RuleID": "generic-password",
+    "Description": "Detected a potential hardcoded password literal, which may expose account credentials.",
+    "StartLine": 59,
+    "EndLine": 59,
+    "StartColumn": 10,
+    "EndColumn": 34,
+    "Match": "password\": \"Staff@12345\",",
+    "Secret": "Staff@12345",
+    "Attributes": {
+      "confidence": "low",
+      "git.author_email": "adhitiadwima@gmail.com",
+      "git.author_name": "adhitiad",
+      "git.date": "2026-04-20T08:08:59Z",
+      "git.message": "feat: implement video processing engine and database infrastructure for automated clip generation",
+      "git.platform": "github",
+      "git.remote_url": "https://github.com/adhitiad/clip-ai",
+      "git.sha": "e6bdcdf10fc198f4aed17a80707d7762b6c7594c",
+      "path": "scripts/seed_db.py",
+      "resource": "git.patch_content",
+      "url": "https://github.com/adhitiad/clip-ai/blob/e6bdcdf10fc198f4aed17a80707d7762b6c7594c/scripts/seed_db.py#L59"
+    },
+    "Tags": [],
+    "ComponentSets": [
+      {
+        "components": [
+          {
+            "RuleID": "generic-username",
+            "Optional": true,
+            "StartLine": 57,
+            "EndLine": 57,
+            "StartColumn": 9,
+            "EndColumn": 36,
+            "Match": "\"email\": \"staff@clipai.dev\",",
+            "Secret": "staff@clipai.dev"
+          }
+        ]
+      },
+      {
+        "components": [
+          {
+            "RuleID": "generic-username",
+            "Optional": true,
+            "StartLine": 58,
+            "EndLine": 58,
+            "StartColumn": 9,
+            "EndColumn": 28,
+            "Match": "\"username\": \"staff\",",
+            "Secret": "staff"
+          }
+        ]
+      }
+    ],
+    "Fingerprint": "e6bdcdf10fc198f4aed17a80707d7762b6c7594c:scripts/seed_db.py:generic-password:59",
+    "File": "scripts/seed_db.py",
+    "SymlinkFile": "",
+    "Commit": "e6bdcdf10fc198f4aed17a80707d7762b6c7594c",
+    "Entropy": 3.2776134,
+    "Author": "adhitiad",
+    "Email": "adhitiadwima@gmail.com",
+    "Date": "2026-04-20T08:08:59Z",
+    "Message": "feat: implement video processing engine and database infrastructure for automated clip generation"
+  },
+  {
+    "RuleID": "generic-password",
+    "Description": "Detected a potential hardcoded password literal, which may expose account credentials.",
+    "StartLine": 69,
+    "EndLine": 69,
+    "StartColumn": 10,
+    "EndColumn": 33,
+    "Match": "password\": \"User@12345\",",
+    "Secret": "User@12345",
+    "Attributes": {
+      "confidence": "low",
+      "git.author_email": "adhitiadwima@gmail.com",
+      "git.author_name": "adhitiad",
+      "git.date": "2026-04-20T08:08:59Z",
+      "git.message": "feat: implement video processing engine and database infrastructure for automated clip generation",
+      "git.platform": "github",
+      "git.remote_url": "https://github.com/adhitiad/clip-ai",
+      "git.sha": "e6bdcdf10fc198f4aed17a80707d7762b6c7594c",
+      "path": "scripts/seed_db.py",
+      "resource": "git.patch_content",
+      "url": "https://github.com/adhitiad/clip-ai/blob/e6bdcdf10fc198f4aed17a80707d7762b6c7594c/scripts/seed_db.py#L69"
+    },
+    "Tags": [],
+    "ComponentSets": [
+      {
+        "components": [
+          {
+            "RuleID": "generic-username",
+            "Optional": true,
+            "StartLine": 67,
+            "EndLine": 67,
+            "StartColumn": 9,
+            "EndColumn": 40,
+            "Match": "\"email\": \"user.free@clipai.dev\",",
+            "Secret": "user.free@clipai.dev"
+          }
+        ]
+      },
+      {
+        "components": [
+          {
+            "RuleID": "generic-username",
+            "Optional": true,
+            "StartLine": 68,
+            "EndLine": 68,
+            "StartColumn": 9,
+            "EndColumn": 32,
+            "Match": "\"username\": \"user_free\",",
+            "Secret": "user_free"
+          }
+        ]
+      }
+    ],
+    "Fingerprint": "e6bdcdf10fc198f4aed17a80707d7762b6c7594c:scripts/seed_db.py:generic-password:69",
+    "File": "scripts/seed_db.py",
+    "SymlinkFile": "",
+    "Commit": "e6bdcdf10fc198f4aed17a80707d7762b6c7594c",
+    "Entropy": 3.321928,
+    "Author": "adhitiad",
+    "Email": "adhitiadwima@gmail.com",
+    "Date": "2026-04-20T08:08:59Z",
+    "Message": "feat: implement video processing engine and database infrastructure for automated clip generation"
+  },
+  {
+    "RuleID": "generic-password",
+    "Description": "Detected a potential hardcoded password literal, which may expose account credentials.",
+    "StartLine": 79,
+    "EndLine": 79,
+    "StartColumn": 10,
+    "EndColumn": 33,
+    "Match": "password\": \"User@12345\",",
+    "Secret": "User@12345",
+    "Attributes": {
+      "confidence": "low",
+      "git.author_email": "adhitiadwima@gmail.com",
+      "git.author_name": "adhitiad",
+      "git.date": "2026-04-20T08:08:59Z",
+      "git.message": "feat: implement video processing engine and database infrastructure for automated clip generation",
+      "git.platform": "github",
+      "git.remote_url": "https://github.com/adhitiad/clip-ai",
+      "git.sha": "e6bdcdf10fc198f4aed17a80707d7762b6c7594c",
+      "path": "scripts/seed_db.py",
+      "resource": "git.patch_content",
+      "url": "https://github.com/adhitiad/clip-ai/blob/e6bdcdf10fc198f4aed17a80707d7762b6c7594c/scripts/seed_db.py#L79"
+    },
+    "Tags": [],
+    "ComponentSets": [
+      {
+        "components": [
+          {
+            "RuleID": "generic-username",
+            "Optional": true,
+            "StartLine": 77,
+            "EndLine": 77,
+            "StartColumn": 9,
+            "EndColumn": 43,
+            "Match": "\"email\": \"user.premium@clipai.dev\",",
+            "Secret": "user.premium@clipai.dev"
+          }
+        ]
+      },
+      {
+        "components": [
+          {
+            "RuleID": "generic-username",
+            "Optional": true,
+            "StartLine": 78,
+            "EndLine": 78,
+            "StartColumn": 9,
+            "EndColumn": 35,
+            "Match": "\"username\": \"user_premium\",",
+            "Secret": "user_premium"
+          }
+        ]
+      }
+    ],
+    "Fingerprint": "e6bdcdf10fc198f4aed17a80707d7762b6c7594c:scripts/seed_db.py:generic-password:79",
+    "File": "scripts/seed_db.py",
+    "SymlinkFile": "",
+    "Commit": "e6bdcdf10fc198f4aed17a80707d7762b6c7594c",
+    "Entropy": 3.321928,
+    "Author": "adhitiad",
+    "Email": "adhitiadwima@gmail.com",
+    "Date": "2026-04-20T08:08:59Z",
+    "Message": "feat: implement video processing engine and database infrastructure for automated clip generation"
+  },
+  {
+    "RuleID": "generic-password",
+    "Description": "Detected a potential hardcoded password literal, which may expose account credentials.",
+    "StartLine": 91,
+    "EndLine": 91,
+    "StartColumn": 10,
+    "EndColumn": 33,
+    "Match": "password\": \"User@12345\",",
+    "Secret": "User@12345",
+    "Attributes": {
+      "confidence": "low",
+      "git.author_email": "adhitiadwima@gmail.com",
+      "git.author_name": "adhitiad",
+      "git.date": "2026-04-20T08:08:59Z",
+      "git.message": "feat: implement video processing engine and database infrastructure for automated clip generation",
+      "git.platform": "github",
+      "git.remote_url": "https://github.com/adhitiad/clip-ai",
+      "git.sha": "e6bdcdf10fc198f4aed17a80707d7762b6c7594c",
+      "path": "scripts/seed_db.py",
+      "resource": "git.patch_content",
+      "url": "https://github.com/adhitiad/clip-ai/blob/e6bdcdf10fc198f4aed17a80707d7762b6c7594c/scripts/seed_db.py#L91"
+    },
+    "Tags": [],
+    "ComponentSets": [
+      {
+        "components": [
+          {
+            "RuleID": "generic-username",
+            "Optional": true,
+            "StartLine": 89,
+            "EndLine": 89,
+            "StartColumn": 9,
+            "EndColumn": 44,
+            "Match": "\"email\": \"user.business@clipai.dev\",",
+            "Secret": "user.business@clipai.dev"
+          }
+        ]
+      },
+      {
+        "components": [
+          {
+            "RuleID": "generic-username",
+            "Optional": true,
+            "StartLine": 90,
+            "EndLine": 90,
+            "StartColumn": 9,
+            "EndColumn": 36,
+            "Match": "\"username\": \"user_business\",",
+            "Secret": "user_business"
+          }
+        ]
+      }
+    ],
+    "Fingerprint": "e6bdcdf10fc198f4aed17a80707d7762b6c7594c:scripts/seed_db.py:generic-password:91",
+    "File": "scripts/seed_db.py",
+    "SymlinkFile": "",
+    "Commit": "e6bdcdf10fc198f4aed17a80707d7762b6c7594c",
+    "Entropy": 3.321928,
+    "Author": "adhitiad",
+    "Email": "adhitiadwima@gmail.com",
+    "Date": "2026-04-20T08:08:59Z",
+    "Message": "feat: implement video processing engine and database infrastructure for automated clip generation"
+  },
+  {
+    "RuleID": "generic-password",
+    "Description": "Detected a potential hardcoded password literal, which may expose account credentials.",
+    "StartLine": 103,
+    "EndLine": 103,
+    "StartColumn": 10,
+    "EndColumn": 33,
+    "Match": "password\": \"User@12345\",",
+    "Secret": "User@12345",
+    "Attributes": {
+      "confidence": "low",
+      "git.author_email": "adhitiadwima@gmail.com",
+      "git.author_name": "adhitiad",
+      "git.date": "2026-04-20T08:08:59Z",
+      "git.message": "feat: implement video processing engine and database infrastructure for automated clip generation",
+      "git.platform": "github",
+      "git.remote_url": "https://github.com/adhitiad/clip-ai",
+      "git.sha": "e6bdcdf10fc198f4aed17a80707d7762b6c7594c",
+      "path": "scripts/seed_db.py",
+      "resource": "git.patch_content",
+      "url": "https://github.com/adhitiad/clip-ai/blob/e6bdcdf10fc198f4aed17a80707d7762b6c7594c/scripts/seed_db.py#L103"
+    },
+    "Tags": [],
+    "ComponentSets": [
+      {
+        "components": [
+          {
+            "RuleID": "generic-username",
+            "Optional": true,
+            "StartLine": 101,
+            "EndLine": 101,
+            "StartColumn": 9,
+            "EndColumn": 46,
+            "Match": "\"email\": \"user.enterprise@clipai.dev\",",
+            "Secret": "user.enterprise@clipai.dev"
+          }
+        ]
+      },
+      {
+        "components": [
+          {
+            "RuleID": "generic-username",
+            "Optional": true,
+            "StartLine": 102,
+            "EndLine": 102,
+            "StartColumn": 9,
+            "EndColumn": 38,
+            "Match": "\"username\": \"user_enterprise\",",
+            "Secret": "user_enterprise"
+          }
+        ]
+      }
+    ],
+    "Fingerprint": "e6bdcdf10fc198f4aed17a80707d7762b6c7594c:scripts/seed_db.py:generic-password:103",
+    "File": "scripts/seed_db.py",
+    "SymlinkFile": "",
+    "Commit": "e6bdcdf10fc198f4aed17a80707d7762b6c7594c",
+    "Entropy": 3.321928,
+    "Author": "adhitiad",
+    "Email": "adhitiadwima@gmail.com",
+    "Date": "2026-04-20T08:08:59Z",
+    "Message": "feat: implement video processing engine and database infrastructure for automated clip generation"
+  },
+  {
+    "RuleID": "generic-credential-uri",
+    "Description": "Detected a password embedded in a service connection URI, which may expose direct access to the referenced service.",
+    "StartLine": 25,
+    "EndLine": 25,
+    "StartColumn": 11,
+    "EndColumn": 66,
+    "Match": "postgresql://postgres:password@localhost:5432/clipper_db",
+    "Secret": "password",
+    "CaptureGroups": {
+      "host": "localhost",
+      "password": "password",
+      "scheme": "postgresql",
+      "uri": "postgresql://postgres:password@localhost:5432/clipper_db",
+      "username": "postgres"
+    },
+    "Attributes": {
+      "confidence": "low",
+      "git.author_email": "adhitiadwima@gmail.com",
+      "git.author_name": "adhitiad",
+      "git.date": "2026-04-21T08:49:35Z",
+      "git.message": "feat: implement micro-investment system with valuation tracking, share purchasing, and shareholder management endpoints",
+      "git.platform": "github",
+      "git.remote_url": "https://github.com/adhitiad/clip-ai",
+      "git.sha": "6e62a66f116d5506cdbb66b893e10790544f6745",
+      "path": ".env.example",
+      "resource": "git.patch_content",
+      "url": "https://github.com/adhitiad/clip-ai/blob/6e62a66f116d5506cdbb66b893e10790544f6745/.env.example#L25"
+    },
+    "Tags": [],
+    "Fingerprint": "6e62a66f116d5506cdbb66b893e10790544f6745:.env.example:generic-credential-uri:25",
+    "File": ".env.example",
+    "SymlinkFile": "",
+    "Commit": "6e62a66f116d5506cdbb66b893e10790544f6745",
+    "Entropy": 2.75,
+    "Author": "adhitiad",
+    "Email": "adhitiadwima@gmail.com",
+    "Date": "2026-04-21T08:49:35Z",
+    "Message": "feat: implement micro-investment system with valuation tracking, share purchasing, and shareholder management endpoints"
+  },
+  {
+    "RuleID": "generic-credential-uri",
+    "Description": "Detected a password embedded in a service connection URI, which may expose direct access to the referenced service.",
+    "StartLine": 18,
+    "EndLine": 18,
+    "StartColumn": 14,
+    "EndColumn": 69,
+    "Match": "postgresql://postgres:password@localhost:5432/clipper_db",
+    "Secret": "password",
+    "CaptureGroups": {
+      "host": "localhost",
+      "password": "password",
+      "scheme": "postgresql",
+      "uri": "postgresql://postgres:password@localhost:5432/clipper_db",
+      "username": "postgres"
+    },
+    "Attributes": {
+      "confidence": "low",
+      "git.author_email": "adhitiadwima@gmail.com",
+      "git.author_name": "adhitiad",
+      "git.date": "2026-04-19T15:09:59Z",
+      "git.message": "feat: implement automated AI video pipeline with niche discovery, YouTube search, and Celery-based processing",
+      "git.platform": "github",
+      "git.remote_url": "https://github.com/adhitiad/clip-ai",
+      "git.sha": "f4ef345c9b90a95db6a5a3e3c745c17f91d5cc69",
+      "path": ".env.example",
+      "resource": "git.patch_content",
+      "url": "https://github.com/adhitiad/clip-ai/blob/f4ef345c9b90a95db6a5a3e3c745c17f91d5cc69/.env.example#L18"
+    },
+    "Tags": [],
+    "Fingerprint": "f4ef345c9b90a95db6a5a3e3c745c17f91d5cc69:.env.example:generic-credential-uri:18",
+    "File": ".env.example",
+    "SymlinkFile": "",
+    "Commit": "f4ef345c9b90a95db6a5a3e3c745c17f91d5cc69",
+    "Entropy": 2.75,
+    "Author": "adhitiad",
+    "Email": "adhitiadwima@gmail.com",
+    "Date": "2026-04-19T15:09:59Z",
+    "Message": "feat: implement automated AI video pipeline with niche discovery, YouTube search, and Celery-based processing"
+  }
+]

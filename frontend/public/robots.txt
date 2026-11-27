@@ -1,0 +1,19 @@
+# Clip AI robots.txt
+# Ganti localhost dengan domain produksi saat deploy.
+User-agent: *
+Allow: /landing
+Allow: /login
+Allow: /about
+Allow: /tos
+Allow: /privacy
+Allow: /contact
+Disallow: /api/
+Disallow: /protected
+Disallow: /dashboard
+Disallow: /shorts
+Disallow: /niche
+Disallow: /history
+Disallow: /tools
+Disallow: /backend
+
+Sitemap: http://localhost:3000/sitemap.xml

@@ -26,7 +26,9 @@ def _read_any(obj: Any, fields: tuple[str, ...], default: Any = None) -> Any:
     return default
 
 
-def search_news_with_exa(query: str, num_results: int = 10, search_type: str = "auto") -> list[dict]:
+def search_news_with_exa(
+    query: str, num_results: int = 10, search_type: str = "auto"
+) -> list[dict]:
     """
     Cari berita/artikel web via Exa dan kembalikan format list yang konsisten.
     """
@@ -53,7 +55,9 @@ def search_news_with_exa(query: str, num_results: int = 10, search_type: str = "
                 "url": _read_any(item, ("url", "id"), ""),
                 "published_date": _read_any(item, ("published_date", "publishedDate")),
                 "author": _read_attr(item, "author"),
-                "highlights": highlights if isinstance(highlights, list) else [str(highlights)],
+                "highlights": highlights
+                if isinstance(highlights, list)
+                else [str(highlights)],
             }
         )
 

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Emblem kompas Clip AI">
+  <rect width="64" height="64" rx="14" fill="#07111f" />
+  <path d="M32 9 37 27 55 32 37 37 32 55 27 37 9 32 27 27Z" fill="#e8c27a" />
+  <path d="M32 9 35 29 32 55 29 29Z" fill="#f3dda9" />
+  <circle cx="32" cy="32" r="5" fill="#07111f" stroke="#ff8a7a" stroke-width="2" />
+  <path d="M13 49q9-7 19 0t19 0" fill="none" stroke="#e8c27a" stroke-width="2.5" stroke-linecap="round" />
+</svg>

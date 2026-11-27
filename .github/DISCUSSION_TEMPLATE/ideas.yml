@@ -1,0 +1,33 @@
+title: "[Idea]: "
+labels: ["idea"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Usulan fitur / peningkatan. Untuk bug, buka Issue instead.
+  - type: textarea
+    id: idea
+    attributes:
+      label: Ide singkat
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Kenapa ini penting untuk short/reel/tiktok?
+    validations:
+      required: true
+  - type: textarea
+    id: rough
+    attributes:
+      label: Gambaran kasar implementasi
+      description: Boleh tinggi level; sebutkan if menyentuh provider, render, atau API.
+  - type: checkboxes
+    id: rules
+    attributes:
+      label: Keselarasan
+      options:
+        - label: Tidak butuh model ML / training baru
+          required: true
+        - label: Tidak menambah role/plan/kredit/billing
+          required: true

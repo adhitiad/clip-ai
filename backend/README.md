@@ -1,161 +1,105 @@
-# 🎬 Ultimate AI Clipper SaaS
+# Backend — Clip AI
 
-**Autonomous Content Factory - Dari Tren Google ke Klip Viral secara Otomatis.**
+FastAPI service untuk pipeline klip AI. Setup lengkap, env, dan gate ada di [README root](../README.md); dokumen ini fokus pada isi `backend/`.
 
-Ultimate AI Clipper adalah platform SaaS Backend berbasis AI yang dirancang untuk memangkas waktu kerja editor video dari jam-jaman menjadi hitungan detik. Sistem ini mencari tren sendiri, menganalisis niche, mencari video sumber, dan memproduksi 3 varian klip viral sekaligus lengkap dengan subtitle, B-Roll, dan dubbing AI.
+## Menjalankan
 
----
+Dari **root repo** (bukan dari `backend/`):
 
-## 🔥 Fitur Utama (State-of-the-Art)
-
-### 🎯 1. Niche Discovery & AI Analysis
-
-- **Google Trends RSS Engine**: Mengambil topik paling trending secara real-time tanpa perlu API Key berbayar.
-- **AI Niche Strategist**: Menggunakan **LLaMA 3 (via Groq)** untuk membedah tren menjadi ide konten, hook, dan query pencarian YouTube yang spesifik.
-- **Exa Web Search**: Cari berita dan artikel web terbaru beserta highlights untuk riset konten yang lebih tajam.
-
-### 🤖 2. Autonomous Content Sourcing
-
-- **YouTube Intelligence**: Mencari video sumber berkualitas tinggi secara otomatis menggunakan metadata dan RSS kanal-kanal besar.
-- **Auto-Queue Pipeline**: Sekali klik, sistem akan mengantrekan proses dari pencarian hingga rendering secara otonom.
-
-### 🎭 3. Multi-Cam & AI Layout
-
-- **Active Speaker Tracking**: Menggunakan **MediaPipe** untuk mendeteksi wajah dan mengatur layout (Crop 9:16, Split Screen/Podcast Mode).
-- **Retention Hacks**: Integrasi otomatis B-Roll (GTA/Minecraft gameplay) untuk menjaga retensi penonton di TikTok/Shorts.
-
-### 🏆 4. Viral Score Predictor (ML)
-
-- **Pre-Render Evaluation**: Model ML (scikit-learn) memperkirakan probabilitas viral klip (1-10) sebelum CPU membuang daya untuk rendering.
-- **Continuous Learning**: Sistem belajar dari data views dan likes nyata untuk meningkatkan akurasi prediksi.
-
-### 🗣️ 5. AI Voice-Over Auto Dubbing
-
-- **ElevenLabs Integration**: Dubbing suara manusia yang sangat realistis.
-- **Multilingual Support**: Mendukung ganti bahasa otomatis (Dubbing Inggris ke Indonesia atau sebaliknya).
-- **Auto-Sync**: Kecepat bicara AI disesuaikan secara otomatis dengan durasi klip video.
-
----
-
-## 🛠️ Tech Stack
-
-- **Backend**: FastAPI (Python 3.13+)
-- **AI/LLM**: Groq (LLaMA 3), Hugging Face (Translation)
-- **Web Search**: Exa (`exa-py`)
-- **Computer Vision**: MediaPipe, OpenCV
-- **Audio/Video**: FFmpeg, Groq Whisper (Transkripsi)
-- **Database**: PostgreSQL (SQLAlchemy), Redis (Celery Broker)
-- **ML**: Scikit-learn, Numpy
-- **Distribution**: Docker & Docker Compose
-
----
-
-## 🚀 Memulai (Setup Cepat)
-
-### 1. Prasyarat Sistem (Penting untuk Windows)
-
-- **Python 3.11+**
-- **FFmpeg & FFprobe**:
-  1. Download binary FFmpeg untuk Windows dari [gyan.dev](https://www.gyan.dev/ffmpeg/builds/).
-  2. Ekstrak dan tambahkan folder `bin` (yang berisi `ffmpeg.exe` dan `ffprobe.exe`) ke **Environment Variables (PATH)** sistem Anda.
-  3. Verifikasi dengan perintah `ffmpeg -version` di Command Prompt.
-- **PostgreSQL Server**:
-  1. Instal [PostgreSQL](https://www.postgresql.org/download/windows/).
-  2. Pastikan service berjalan.
-  3. Buat database secara manual:
-     ```sql
-     CREATE DATABASE clipper_db;
-     ```
-- **Redis Server**: Diperlukan sebagai message broker untuk Celery. Bisa dijalankan via Docker atau WSL.
-
-### 2. Instalasi
-
-```bash
-# Clone repository
-git clone https://github.com/username/clip-ai.git
-cd clip-ai
-
-# Buat virtual environment
-python -m venv venv
-source venv/bin/activate  # atau venv\Scripts\activate di Windows
-
-# Install dependensi
-pip install -r requirements.txt
+```powershell
+uv sync
+uv run uvicorn backend.main:app --reload --port 8000
 ```
 
-### 3. Konfigurasi Environment
+`SECRET_KEY` wajib diisi dan tidak boleh placeholder. API membaca `backend/.env`, lalu fallback ke `.env` root; process env selalu menang. Lihat `.env.example` untuk daftar variabel.
 
-Buat file `.env` di root direktori:
+## Peta Modul
 
-```env
-GROQ_API_KEY=gsk_your_key_here
-EXA_API_KEY=exa_your_key_here
-ELEVENLABS_API_KEY=your_key_here
-PINECONE_API_KEY=your_key_here
-DATABASE_URL=postgresql://postgres:password@localhost:5432/clipper_db
-PEXELS_API_KEY=your_pexels_key
-PORT=8000
-```
+| Modul | Tanggung jawab |
+| --- | --- |
+| `main.py` | App FastAPI, lifespan, registrasi router (auth, bridge, agent, clips, niche, tasks, tools, dashboard, ops, settings, youtube) |
+| `core/env.py` | Loader `.env` terpusat (root + component) |
+| `core/auth.py` | Google-only login (`POST /auth/google` ID token + whitelist `OWNER_EMAILS`), JWT HS256, `get_current_active_user`, `get_db` |
+| `core/security.py` | `require_owner` (semua user login = pemilik project pribadi) |
+| `core/request_id.py` | Contextvar `X-Request-ID` (UUIDv7) + middleware/log |
+| `core/telemetry.py` | Trace W3C `traceparent`, log JSON `logs/trace.jsonl`, OTLP opsional |
+| `core/audit.py` | Audit panggilan AI ke `logs/audit.jsonl` (tanpa secret) |
+| `core/taskiq_config.py` | Broker Taskiq (`AioPikaBroker`) + result backend |
+| `core/worker_count.py` | Jumlah worker dari inti fisik (min 1 (genap untuk 2+ core)), override `TASKIQ_WORKERS` |
+| `core/task_results.py` | Hasil & progres task: PostgreSQL `task_results` + cache memori |
+| `routes/ops.py` | Endpoint operasional: tasks, queue, cache, trace, render |
+| `routes/settings.py` | Endpoint pengaturan user & owner |
+| `models/task_result.py` | Model SQLAlchemy `task_results` |
+| `models/feedback.py` | Feedback performa untuk kalibrasi skor |
+| `core/rabbitmq_config.py` | Resolver `RABBITMQ_URL` (broker AMQP), healthcheck |
+| `core/validation.py` | Validasi & konfineness path (mis. `/tools/dub`) |
+| `core/rate_limit.py` | Rate limit per endpoint |
+| `core/models.py` | Model internal `@dataclass` (`ViralFeatures`, `ViralScore`, `ShortsPlan`, `ProviderInfo`, `ClipStat`, `RevenueSnapshot`) + numpy/pandas |
+| `core/ai_pipeline.py` | Transkripsi STT → hook LLM → dubbing TTS → render |
+| `core/agent.py` | Rencana short/reel/tiktok via LLM + `ShortsPlanData`; `clip_duration_stats` via numpy |
+| `services/model_discovery.py` | Katalog provider LLM/TTS/STT + autodetection + `select_agent_model.py` |
+| `services/provider_health.py` | Circuit breaker provider: 2 gagal → cooldown 60 detik |
+| `services/tts.py` | TTS provider (Cartesia → Camb AI → gTTS; `TTS_PROVIDER`) |
+| `services/transcription.py` | STT provider (Camb AI → OpenAI → Groq; `STT_PROVIDER`) |
+| `services/viral_predictor.py` | Feature extraction + `rule_based_score` (numpy) + batch via pandas |
+| `services/render_cache.py` | Hash input render + manifest artefak (`output/manifest.json`), ffprobe metadata |
+| `services/render_pipeline.py` | Pipeline render bersama dipakai Taskiq & CLI `render_job.py` |
+| `services/content_intelligence.py` | Analisis video, merge brief + trend, skor viral |
+| `services/platform_revenue.py` | Adapter pendapatan YouTube/TikTok/Meta Reels (read-only, platform tanpa API → `available:false`) |
+| `services/revenue_advice.py` | Saran peningkatan pendapatan via model teks `AGENT_*` (LangChain, override `REVENUE_AI_MODEL`) |
+| `services/video_discovery.py` | Auto-discover video dari topik: YouTube + Exa/Tavily/Firecrawl/Selenium-BeautifulSoup + AI seleksi relevansi |
+| `services/access_logger.py` | Access log identitas per-request ke MongoDB (`MONGODB_URL`), klasifikasi user/asing/hacker + flag |
+| `core/rotating_jsonl.py` | Rotasi ukuran + redaksi secret untuk `trace.jsonl`/`audit.jsonl` |
+| `utils/youtube_token.py` | Dekripsi token OAuth YouTube dari file frontend + refresh |
+| `services/video_engine.py` | Layout MediaPipe, cut/crop FFmpeg, caption MoviePy, B-Roll, generate thumbnail per klip ke `download/thumbnails/` |
+| `services/dubbing.py` | Transkripsi → terjemah → TTS → merge audio |
+| `services/vector_store.py` | Pinecone + embeddings Ollama lokal (`OLLAMA_EMBED_MODEL`, offline) |
+| `utils/db.py` | Engine/session, `init_db`, helper clip |
+| `utils/youtube.py` | Subtitle/audio/segmen video via yt-dlp |
+| `utils/rss_google.py` | Google Trends RSS + pencarian YouTube |
+| `utils/captioning.py` | Word-level transcript dan SRT |
+| `scripts/` | Seed DB, `render_job.py` (dipanggil worker AMQP), unduh aset demo |
 
-> [!CAUTION]
-> **Pexels API Key** diperlukan agar fitur B-Roll (footage Minecraft/GTA) dapat diunduh. Tanpa ini, video rintisan akan gagal diproduksi.
+## Router dan Akses
 
-### 4. Jalankan Aplikasi
+| Prefix | Isi | Catatan akses |
+| --- | --- | --- |
+| `/auth` | google, me | Google ID token + whitelist `OWNER_EMAILS` |
+| `/auth/bridge` | — | `AUTH_BRIDGE_TOKEN`; server-ke-server: session frontend → JWT backend |
+| `/agent` | shorts | login; brief default, render via `render_video=true`; multi-URL → mix satu MP4 lewat Taskiq; tanpa URL, AI auto-discover video dari `topic` |
+| `/clips` | generate-clips, feedback, CRUD (`/clips`, `/clips/{id}`) | login |
+| `/niche` | trending, suggest, find-videos, search-web, analyze-and-queue | login |
+| `/tools` | dub, viral-score, providers, model-status, feedback | login |
+| `/dashboard` | overview, history, profile, stats, health | login (semua user login = pemilik) |
+| `/revenue` | summary, advice | login | pendapatan platform (bukan billing) + saran AI dari model teks `AGENT_*` |
+| `/youtube` | search, scheduler/status, scheduler/collect | search login; scheduler `X-Cron-Secret` |
+| `/tasks` | `{task_id}` | status task Taskiq (polling render) | login |
+| `/ops` | tasks, queue, cache, traces, export, data, audit, access-log, health, render | login | operasional & observability |
+| `/settings` | me, owner | login | profil & preferensi pribadi |
 
-```bash
-# Terminal 1: Jalankan API Server
-python main.py
+Kontrak request/response: [`docs/API.md`](../docs/API.md). Semua endpoint `/dashboard`, `/tools`, dan `/ops` memakai `response_model`; snapshot skema ada di [`docs/openapi.json`](../docs/openapi.json).
 
-# Terminal 2: Jalankan Celery Worker (untuk rendering)
-celery -A worker:celery_app worker --loglevel=info -P solo
-```
+## Auth (Personal Mode)
 
-> [!NOTE]
-> Di Windows, Celery harus dijalankan dengan argumen `-P solo`. Argumen ini memastikan kestabilan proses rendering di Windows, namun berarti worker hanya akan memproses **satu tugas rendering** secara sekuensial (satu per satu).
+- Project pribadi: **satu user** Google via `POST /auth/google` (ID token, `GOOGLE_CLIENT_ID`, whitelist `OWNER_EMAILS`).
+- Token JWT HS256 via `POST /auth/bridge` (`AUTH_BRIDGE_TOKEN`); Bearer token untuk semua endpoint.
+- Tidak ada password, role, plan, kredit, billing, atau `/auth/token`, `/auth/register`, `/auth/bootstrap-owner`, `/auth/set-role`.
 
----
+## Database
 
-## 🛣️ API Endpoints Mapping
+- `init_db()` menjalankan `Base.metadata.create_all` setelah patch enum/kolom lama (jika ada) via `_import_models()` di `backend/utils/db.py`.
+- **Alembic** dipakai untuk perubahan skema: `uv run alembic upgrade head` (membaca `DATABASE_URL` lewat `backend/core/env.py`). Revisi `0001_initial` membuat 7 tabel, `0005_task_results` menambah tabel hasil task, `0006_task_results_attempts` menambah kolom `attempts`, `0007_drop_finance_investment` menghapus modul uang, `0008_performance_feedback` menambah tabel feedback, `0009_clip_created_at` menambah timestamp clip, `0010_query_indexes` menambah index query; upgrade idempoten. `init_db()` hanya `create_all` untuk runtime, tanpa `ALTER TABLE` ad-hoc. Model baru tetap wajib diimpor via `_import_models()` di `backend/utils/db.py` agar masuk metadata.
+- `DATABASE_URL` default di kode selalu set eksplisit.
 
-| Fitur                                | Endpoint                                      |
-| ------------------------------------ | --------------------------------------------- |
-| **Niche Discovery**                  | `GET /niche/suggest`                          |
-| **Video Search**                     | `GET /niche/find-videos`                      |
-| **Web Search (Exa)**                 | `GET /niche/search-web`                       |
-| **Auto Pipeline**                    | `POST /niche/analyze-and-queue`               |
-| **AI Dubbing**                       | `POST /tools/dub`                             |
-| **Viral Prediction**                 | `POST /tools/viral-score`                     |
-| **Dashboard (Role-based)**           | `GET /dashboard/overview`                     |
-| **User Growth (Admin Ops)**          | `GET /dashboard/user-growth`                  |
-| **History (Role-based)**             | `GET /dashboard/history`                      |
-| **User Profile (Self)**              | `GET /dashboard/profile`                      |
-| **User Settings (Self)**             | `PATCH /dashboard/profile-settings`           |
-| **User Profile by ID (Owner/Staff)** | `GET /dashboard/users/{user_id}/profile`      |
-| **Owner Profile Settings**           | `GET/PATCH /dashboard/owner/profile-settings` |
-| **Owner Monitor**                    | `GET /dashboard/owner/monitor`                |
+## Scoring Viral (tanpa model)
 
----
+- `predict_viral_score()` hanya memakai `rule_based_score()`; confidence selalu `rule_based`.
+- Tidak ada `.pkl`, training data, `train_model`, atau endpoint retrain.
+- `GET /tools/model-status` melaporkan `enabled: false`; `POST /tools/feedback` hanya analitik.
 
-## 📈 Roadmap Pengembangan
+## Catatan Teknis
 
-- [x] Integrasi Google Trends RSS
-- [x] Viral Score Predictor ML
-- [x] Auto Dubbing (ElevenLabs)
-- [x] Backend Dashboard API (Role-based OWNER/STAFF/USER)
-- [ ] Auto-Publisher ke TikTok/YouTube API
-- [x] Next.js Modern Dashboard
-- [ ] Stripe/Midtrans Credit System
-
----
-
-## Features Frontend
-
-di [clip-aif](https://github.com/Adhitiad/clip-aif)
-
-## 🛡️ Lisensi
-
-Proyek ini dilisensikan di bawah **MIT License**. Lihat file [LICENSE](https://github.com/Adhitiad/clip-ai/blob/main/LICENSE) untuk detail selengkapnya.
-
----
-
-_Dibuat oleh [Adhitiad](https://github.com/Adhitiad)._
+- `backend/requirements.txt` adalah file legacy. Sumber dependensi yang benar adalah `pyproject.toml` + `uv.lock`; tambahkan dependensi lewat `uv add`.
+- Rendering memakai MoviePy 2 (`with_*`, `resized`, `cropped`) dan FFmpeg eksternal. Caption default memakai font bawaan MoviePy/Pillow.
+- `backend/test_system.py` adalah smoke manual (bcrypt + DB hidup), bukan bagian pytest.
+- Gate backend: `uv run python scripts/gate.py` dari root.

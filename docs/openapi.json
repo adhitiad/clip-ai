@@ -1,0 +1,4609 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Clip AI API",
+    "description": "Backend pribadi Clip AI: agent shorts/reels/tiktok, klip, riset niche, tools, revenue, dan operasional. Satu user Google, tanpa billing.",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/auth/google": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Google Login",
+        "description": "Login/daftar otomatis lewat Google ID token. Tidak ada password.",
+        "operationId": "google_login_auth_google_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Token"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Get Me",
+        "operationId": "get_me_auth_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/health/live": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Health Live",
+        "description": "Proses hidup. Tidak menyentuh DB atau broker.",
+        "operationId": "health_live_health_live_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Health Live Health Live Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Health Ready",
+        "description": "Siap menerima kerja: DB dan broker harus tersedia.",
+        "operationId": "health_ready_health_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Health Ready Health Ready Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agent/shorts": {
+      "post": {
+        "tags": [
+          "Shorts Agent"
+        ],
+        "summary": "Create Shorts",
+        "description": "Rencanakan short/reel/tiktok (brief JSON). Jika ``render_video=true``,\npipeline video existing dipakai dan task render diantre ke Taskiq.\nBeberapa ``video_urls`` digabung jadi satu MP4 (``mix_sources``).",
+        "operationId": "create_shorts_agent_shorts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShortsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/clips/generate-clips": {
+      "post": {
+        "tags": [
+          "Clip Management"
+        ],
+        "summary": "Generate Clips",
+        "operationId": "generate_clips_clips_generate_clips_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VideoRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/clips/feedback": {
+      "post": {
+        "tags": [
+          "Clip Management"
+        ],
+        "summary": "Submit Feedback",
+        "description": "Endpoint untuk memberi tahu AI jika hook tersebut sukses/viral.",
+        "operationId": "submit_feedback_clips_feedback_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/clips": {
+      "get": {
+        "tags": [
+          "Clip Management"
+        ],
+        "summary": "List Clips",
+        "operationId": "list_clips_clips_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ClipOut"
+                  },
+                  "title": "Response List Clips Clips Get",
+                  "maxItems": 500
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/clips/{clip_id}": {
+      "get": {
+        "tags": [
+          "Clip Management"
+        ],
+        "summary": "Get Clip",
+        "operationId": "get_clip_clips__clip_id__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "clip_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Clip Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClipOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Clip Management"
+        ],
+        "summary": "Update Clip",
+        "operationId": "update_clip_clips__clip_id__patch",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "clip_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Clip Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClipUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClipOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Clip Management"
+        ],
+        "summary": "Delete Clip",
+        "operationId": "delete_clip_clips__clip_id__delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "clip_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Clip Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/niche/trending": {
+      "get": {
+        "tags": [
+          "Niche & Discovery"
+        ],
+        "summary": "Get Trending",
+        "description": "Ambil topik trending langsung dari Google Trends RSS.\nTidak perlu API key, gratis, real-time.",
+        "operationId": "get_trending_niche_trending_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "geo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Kode negara: 'id', 'us', atau 'global'",
+              "default": "id",
+              "title": "Geo"
+            },
+            "description": "Kode negara: 'id', 'us', atau 'global'"
+          },
+          {
+            "name": "max_items",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 5,
+              "default": 20,
+              "title": "Max Items"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/niche/suggest": {
+      "get": {
+        "tags": [
+          "Niche & Discovery"
+        ],
+        "summary": "Suggest Niches",
+        "description": "Ambil trending → analisis AI → kembalikan 5 niche terbaik beserta\nsaran hook konten dan query pencarian video.",
+        "operationId": "suggest_niches_niche_suggest_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "geo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Kode negara: 'id', 'us', atau 'global'",
+              "default": "id",
+              "title": "Geo"
+            },
+            "description": "Kode negara: 'id', 'us', atau 'global'"
+          },
+          {
+            "name": "max_trends",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 10,
+              "default": 20,
+              "title": "Max Trends"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/niche/find-videos": {
+      "get": {
+        "tags": [
+          "Niche & Discovery"
+        ],
+        "summary": "Find Videos",
+        "description": "Cari video YouTube berdasarkan query menggunakan yt-dlp (tanpa API key).\nMengembalikan list video lengkap dengan URL, thumbnail, durasi, dll.",
+        "operationId": "find_videos_niche_find_videos_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Kata kunci pencarian video YouTube",
+              "title": "Query"
+            },
+            "description": "Kata kunci pencarian video YouTube"
+          },
+          {
+            "name": "max_results",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 30,
+              "minimum": 1,
+              "default": 10,
+              "title": "Max Results"
+            }
+          },
+          {
+            "name": "min_duration",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "description": "Durasi minimal video (detik)",
+              "default": 60,
+              "title": "Min Duration"
+            },
+            "description": "Durasi minimal video (detik)"
+          },
+          {
+            "name": "max_duration",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "description": "Durasi maksimal video (detik)",
+              "default": 7200,
+              "title": "Max Duration"
+            },
+            "description": "Durasi maksimal video (detik)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/niche/search-web": {
+      "get": {
+        "tags": [
+          "Niche & Discovery"
+        ],
+        "summary": "Search Web",
+        "description": "Cari berita/artikel web terbaru menggunakan Exa.",
+        "operationId": "search_web_niche_search_web_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Kata kunci berita/artikel web",
+              "title": "Query"
+            },
+            "description": "Kata kunci berita/artikel web"
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 20,
+              "minimum": 1,
+              "default": 10,
+              "title": "Num Results"
+            }
+          },
+          {
+            "name": "search_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "auto | fast | deep-lite | deep | deep-reasoning | instant",
+              "default": "auto",
+              "title": "Search Type"
+            },
+            "description": "auto | fast | deep-lite | deep | deep-reasoning | instant"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/niche/analyze-and-queue": {
+      "post": {
+        "tags": [
+          "Niche & Discovery"
+        ],
+        "summary": "Analyze And Queue",
+        "description": "🤖 Pipeline Otomatis Penuh:\n  1. Ambil trending Google (geo yang dipilih)\n  2. AI analisis → rekomendasikan N niche terbaik\n  3. Cari video YouTube untuk setiap niche\n  4. Queue rendering klip via Taskiq untuk setiap video yang ditemukan\n\nSeluruh kerja sinkron berjalan di thread; hanya ``kiq()`` yang di-await.",
+        "operationId": "analyze_and_queue_niche_analyze_and_queue_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutoQueueRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/ops/tasks": {
+      "get": {
+        "tags": [
+          "Operations"
+        ],
+        "summary": "List Tasks",
+        "operationId": "list_tasks_ops_tasks_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TaskOut"
+                  },
+                  "title": "Response List Tasks Ops Tasks Get",
+                  "maxItems": 500
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ops/tasks/{task_id}": {
+      "delete": {
+        "tags": [
+          "Operations"
+        ],
+        "summary": "Delete Task",
+        "operationId": "delete_task_ops_tasks__task_id__delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskActionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ops/queue": {
+      "get": {
+        "tags": [
+          "Operations"
+        ],
+        "summary": "Queue Status",
+        "operationId": "queue_status_ops_queue_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/ops/workers": {
+      "get": {
+        "tags": [
+          "Operations"
+        ],
+        "summary": "Workers Info",
+        "operationId": "workers_info_ops_workers_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkersOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/ops/cache": {
+      "get": {
+        "tags": [
+          "Operations"
+        ],
+        "summary": "Cache List",
+        "operationId": "cache_list_ops_cache_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CacheEntryOut"
+                  },
+                  "type": "array",
+                  "title": "Response Cache List Ops Cache Get",
+                  "maxItems": 500
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/ops/cache/invalidate": {
+      "post": {
+        "tags": [
+          "Operations"
+        ],
+        "summary": "Cache Invalidate",
+        "operationId": "cache_invalidate_ops_cache_invalidate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CacheInvalidateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CacheInvalidateOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/ops/traces": {
+      "get": {
+        "tags": [
+          "Operations"
+        ],
+        "summary": "Traces",
+        "operationId": "traces_ops_traces_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TraceOut"
+                  },
+                  "title": "Response Traces Ops Traces Get",
+                  "maxItems": 500
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ops/render": {
+      "post": {
+        "tags": [
+          "Operations"
+        ],
+        "summary": "Enqueue Render",
+        "operationId": "enqueue_render_ops_render_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenderEnqueueIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenderEnqueueOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/ops/export": {
+      "get": {
+        "tags": [
+          "Operations"
+        ],
+        "summary": "Export Data",
+        "description": "Ekspor seluruh data pribadi (clip, feedback, task, pengaturan).",
+        "operationId": "export_data_ops_export_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/ops/data": {
+      "delete": {
+        "tags": [
+          "Operations"
+        ],
+        "summary": "Delete Data",
+        "description": "Hapus semua data pribadi; butuh konfirmasi eksplisit 'DELETE'.",
+        "operationId": "delete_data_ops_data_delete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurgeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurgeOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/ops/access-log": {
+      "get": {
+        "tags": [
+          "Operations"
+        ],
+        "summary": "Access Log",
+        "description": "Tail access log identitas per-request dari MongoDB.",
+        "operationId": "access_log_ops_access_log_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "only_flagged",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Hanya ⚠️/❌/🛑",
+              "default": false,
+              "title": "Only Flagged"
+            },
+            "description": "Hanya ⚠️/❌/🛑"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AccessLogOut"
+                  },
+                  "title": "Response Access Log Ops Access Log Get",
+                  "maxItems": 500
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ops/audit": {
+      "get": {
+        "tags": [
+          "Operations"
+        ],
+        "summary": "Audit Log",
+        "description": "Tail audit panggilan AI (LLM/TTS/STT), tanpa API key/JWT.",
+        "operationId": "audit_log_ops_audit_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AuditOut"
+                  },
+                  "title": "Response Audit Log Ops Audit Get",
+                  "maxItems": 500
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ops/health": {
+      "get": {
+        "tags": [
+          "Operations"
+        ],
+        "summary": "Health Detail",
+        "description": "Snapshot kesehatan detail untuk owner.",
+        "operationId": "health_detail_ops_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthDetailOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/settings/me": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get My Settings",
+        "operationId": "get_my_settings_settings_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserSettingOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update My Settings",
+        "operationId": "update_my_settings_settings_me_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserSettingIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserSettingOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/settings/owner": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get Owner Settings",
+        "operationId": "get_owner_settings_settings_owner_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerSettingOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update Owner Settings",
+        "operationId": "update_owner_settings_settings_owner_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OwnerSettingIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerSettingOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/tasks/{task_id}": {
+      "get": {
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Get Task Status",
+        "description": "Status task render: PENDING / PROGRESS / SUCCESS / FAILURE.",
+        "operationId": "get_task_status_tasks__task_id__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tools/dub": {
+      "post": {
+        "tags": [
+          "AI Tools"
+        ],
+        "summary": "Dub Video",
+        "description": "AI Voice-Over Auto Dubbing.\n\nPipeline:\n  1. Transkripsi audio asli (Whisper via REST)\n  2. Terjemahan ke target bahasa (LLaMA)\n  3. Generate suara baru (Cartesia / Camb AI / gTTS fallback)\n  4. Gabung audio ke video (FFmpeg)\n\nReturn path ke video hasil dubbing.",
+        "operationId": "dub_video_tools_dub_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DubRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DubOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/tools/viral-score": {
+      "post": {
+        "tags": [
+          "AI Tools"
+        ],
+        "summary": "Predict Viral",
+        "description": "Prediksi skor viral (1-10) sebelum render (rule-based, tanpa model ML).\n\nSkor >= threshold direkomendasikan untuk dirender.",
+        "operationId": "predict_viral_tools_viral_score_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ViralScoreRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViralScoreOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/tools/providers": {
+      "get": {
+        "tags": [
+          "AI Tools"
+        ],
+        "summary": "List Providers",
+        "description": "Katalog provider dan model. Sumber tunggal untuk daftar di frontend.",
+        "operationId": "list_providers_tools_providers_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvidersOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/tools/platforms": {
+      "get": {
+        "tags": [
+          "AI Tools"
+        ],
+        "summary": "List Platforms",
+        "description": "Daftar platform shorts. Sumber tunggal untuk pilihan di frontend.",
+        "operationId": "list_platforms_tools_platforms_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformsOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/tools/calibration": {
+      "get": {
+        "tags": [
+          "AI Tools"
+        ],
+        "summary": "Calibration Report Endpoint",
+        "description": "Korelasi skor viral vs feedback nyata (analitik, bukan training).",
+        "operationId": "calibration_report_endpoint_tools_calibration_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 2000,
+              "minimum": 1,
+              "default": 500,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalibrationReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tools/model-status": {
+      "get": {
+        "tags": [
+          "AI Tools"
+        ],
+        "summary": "Model Status",
+        "description": "Status scoring viral: rule-based, tanpa model/training.",
+        "operationId": "model_status_tools_model_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelStatusOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/tools/feedback": {
+      "post": {
+        "tags": [
+          "AI Tools"
+        ],
+        "summary": "Record Feedback",
+        "description": "Catat performa nyata klip setelah dipublish (untuk analitik, bukan training).",
+        "operationId": "record_feedback_tools_feedback_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PerformanceFeedback"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/dashboard/overview": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Dashboard Overview",
+        "operationId": "dashboard_overview_dashboard_overview_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverviewOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/dashboard/history": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Dashboard History",
+        "operationId": "dashboard_history_dashboard_history_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Page Size"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "default": "",
+              "title": "Search"
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(id|title|score)$",
+              "default": "id",
+              "title": "Sort By"
+            }
+          },
+          {
+            "name": "sort_dir",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(asc|desc)$",
+              "default": "desc",
+              "title": "Sort Dir"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistoryOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/dashboard/profile": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Dashboard Profile",
+        "operationId": "dashboard_profile_dashboard_profile_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/dashboard/stats": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Dashboard Stats",
+        "description": "Statistik 7 hari terakhir (jumlah clip per hari).",
+        "operationId": "dashboard_stats_dashboard_stats_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/dashboard/health": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Dashboard Health",
+        "operationId": "dashboard_health_dashboard_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardHealthOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/revenue/summary": {
+      "get": {
+        "tags": [
+          "Revenue"
+        ],
+        "summary": "Revenue Summary",
+        "description": "Ringkasan pendapatan dari adapter platform yang tersedia.",
+        "operationId": "revenue_summary_revenue_summary_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 365,
+              "minimum": 7,
+              "default": 28,
+              "title": "Days"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevenueSummaryOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/revenue/advice": {
+      "get": {
+        "tags": [
+          "Revenue"
+        ],
+        "summary": "Revenue Advice",
+        "description": "Saran peningkatan pendapatan dari model teks AGENT_* (satu jalur LLM).",
+        "operationId": "revenue_advice_revenue_advice_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 365,
+              "minimum": 7,
+              "default": 28,
+              "title": "Days"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevenueAdviceOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/youtube/search": {
+      "post": {
+        "tags": [
+          "YouTube Research"
+        ],
+        "summary": "Youtube Search",
+        "description": "Riset video publik (butuh YOUTUBE_DATA_API_KEY).",
+        "operationId": "youtube_search_youtube_search_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/youtube/scheduler/status": {
+      "get": {
+        "tags": [
+          "YouTube Research"
+        ],
+        "summary": "Scheduler Status",
+        "description": "Health check scheduler. Butuh JWT owner dan X-Cron-Secret.",
+        "operationId": "scheduler_status_youtube_scheduler_status_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-cron-secret",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Cron-Secret"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/youtube/scheduler/collect": {
+      "post": {
+        "tags": [
+          "YouTube Research"
+        ],
+        "summary": "Scheduler Collect",
+        "description": "Kumpulkan kandidat video. Butuh JWT owner dan X-Cron-Secret.",
+        "operationId": "scheduler_collect_youtube_scheduler_collect_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-cron-secret",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Cron-Secret"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AccessLogOut": {
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp"
+          },
+          "level": {
+            "type": "string",
+            "title": "Level"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          },
+          "flag": {
+            "type": "string",
+            "title": "Flag"
+          },
+          "ip": {
+            "type": "string",
+            "title": "Ip"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email",
+            "default": ""
+          },
+          "user_type": {
+            "type": "string",
+            "title": "User Type",
+            "default": ""
+          },
+          "device_id": {
+            "type": "string",
+            "title": "Device Id",
+            "default": ""
+          },
+          "device_name": {
+            "type": "string",
+            "title": "Device Name",
+            "default": ""
+          },
+          "browser": {
+            "type": "string",
+            "title": "Browser",
+            "default": ""
+          },
+          "http_version": {
+            "type": "string",
+            "title": "Http Version",
+            "default": ""
+          },
+          "method": {
+            "type": "string",
+            "title": "Method",
+            "default": ""
+          },
+          "path": {
+            "type": "string",
+            "title": "Path",
+            "default": ""
+          },
+          "status": {
+            "type": "integer",
+            "title": "Status",
+            "default": 0
+          },
+          "keterangan": {
+            "type": "string",
+            "title": "Keterangan",
+            "default": ""
+          },
+          "line": {
+            "type": "string",
+            "title": "Line",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "timestamp",
+          "level",
+          "actor",
+          "flag",
+          "ip"
+        ],
+        "title": "AccessLogOut"
+      },
+      "AuditOut": {
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp",
+            "default": ""
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "default": ""
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider",
+            "default": ""
+          },
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "default": ""
+          },
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "request_id": {
+            "type": "string",
+            "title": "Request Id",
+            "default": ""
+          },
+          "trace_id": {
+            "type": "string",
+            "title": "Trace Id",
+            "default": ""
+          },
+          "span_id": {
+            "type": "string",
+            "title": "Span Id",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "AuditOut"
+      },
+      "AutoQueueRequest": {
+        "properties": {
+          "geo": {
+            "type": "string",
+            "title": "Geo",
+            "default": "id"
+          },
+          "niche_count": {
+            "type": "integer",
+            "title": "Niche Count",
+            "default": 3
+          },
+          "videos_per_niche": {
+            "type": "integer",
+            "title": "Videos Per Niche",
+            "default": 3
+          },
+          "user_query": {
+            "type": "string",
+            "title": "User Query",
+            "default": "momen paling menarik dan viral"
+          },
+          "target_language": {
+            "type": "string",
+            "title": "Target Language",
+            "default": "id"
+          },
+          "min_duration_seconds": {
+            "type": "integer",
+            "title": "Min Duration Seconds",
+            "default": 120
+          },
+          "max_duration_seconds": {
+            "type": "integer",
+            "title": "Max Duration Seconds",
+            "default": 3600
+          }
+        },
+        "type": "object",
+        "title": "AutoQueueRequest"
+      },
+      "CacheEntryOut": {
+        "properties": {
+          "cache_key": {
+            "type": "string",
+            "title": "Cache Key"
+          },
+          "files": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Files",
+            "maxItems": 500
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cache_key",
+          "files"
+        ],
+        "title": "CacheEntryOut"
+      },
+      "CacheInvalidateIn": {
+        "properties": {
+          "cache_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cache Key"
+          },
+          "all": {
+            "type": "boolean",
+            "title": "All",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "CacheInvalidateIn"
+      },
+      "CacheInvalidateOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "removed": {
+            "type": "integer",
+            "title": "Removed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "removed"
+        ],
+        "title": "CacheInvalidateOut"
+      },
+      "CalibrationBucket": {
+        "properties": {
+          "bucket": {
+            "type": "string",
+            "title": "Bucket"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "mean_actual": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Actual"
+          }
+        },
+        "type": "object",
+        "required": [
+          "bucket",
+          "count"
+        ],
+        "title": "CalibrationBucket"
+      },
+      "CalibrationReport": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "samples": {
+            "type": "integer",
+            "title": "Samples"
+          },
+          "correlation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correlation"
+          },
+          "mean_predicted": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Predicted"
+          },
+          "mean_actual": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Actual"
+          },
+          "buckets": {
+            "items": {
+              "$ref": "#/components/schemas/CalibrationBucket"
+            },
+            "type": "array",
+            "title": "Buckets",
+            "default": [],
+            "maxItems": 500
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "samples"
+        ],
+        "title": "CalibrationReport"
+      },
+      "ClipOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "video_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Url"
+          },
+          "topic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic"
+          },
+          "start_time": {
+            "type": "integer",
+            "title": "Start Time"
+          },
+          "end_time": {
+            "type": "integer",
+            "title": "End Time"
+          },
+          "title_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title En"
+          },
+          "desc_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Desc En"
+          },
+          "score": {
+            "type": "integer",
+            "title": "Score"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "start_time",
+          "end_time",
+          "score"
+        ],
+        "title": "ClipOut"
+      },
+      "ClipSummaryOut": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "average_score": {
+            "type": "number",
+            "title": "Average Score"
+          },
+          "max_score": {
+            "type": "number",
+            "title": "Max Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "average_score",
+          "max_score"
+        ],
+        "title": "ClipSummaryOut"
+      },
+      "ClipUpdate": {
+        "properties": {
+          "title_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title En"
+          },
+          "desc_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Desc En"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          }
+        },
+        "type": "object",
+        "title": "ClipUpdate"
+      },
+      "DashboardHealthDetailOut": {
+        "properties": {
+          "database": {
+            "$ref": "#/components/schemas/HealthFlagOut"
+          },
+          "rabbitmq": {
+            "$ref": "#/components/schemas/HealthFlagOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "database",
+          "rabbitmq"
+        ],
+        "title": "DashboardHealthDetailOut"
+      },
+      "DashboardHealthOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "health": {
+            "$ref": "#/components/schemas/DashboardHealthDetailOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "health"
+        ],
+        "title": "DashboardHealthOut"
+      },
+      "DashboardUserOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email"
+        ],
+        "title": "DashboardUserOut"
+      },
+      "DubOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "dubbed_video": {
+            "type": "string",
+            "title": "Dubbed Video"
+          },
+          "target_language": {
+            "type": "string",
+            "title": "Target Language"
+          },
+          "original_video": {
+            "type": "string",
+            "title": "Original Video"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "dubbed_video",
+          "target_language",
+          "original_video",
+          "message"
+        ],
+        "title": "DubOut"
+      },
+      "DubRequest": {
+        "properties": {
+          "video_path": {
+            "type": "string",
+            "title": "Video Path",
+            "description": "Path absolut ke file video MP4 yang sudah dirender"
+          },
+          "target_lang": {
+            "type": "string",
+            "title": "Target Lang",
+            "description": "'id' untuk Indonesia, 'en' untuk English",
+            "default": "id"
+          },
+          "keep_original_audio": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Keep Original Audio",
+            "description": "Volume audio asli (0=mute, 0.1=ambient, 1.0=full)",
+            "default": 0.1
+          },
+          "output_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Path",
+            "description": "Path output; kosong = auto",
+            "default": ""
+          },
+          "script_text": {
+            "type": "string",
+            "maxLength": 5000,
+            "title": "Script Text",
+            "description": "Naskah dubbing opsional; bila diisi, transkripsi dilewati",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "video_path"
+        ],
+        "title": "DubRequest"
+      },
+      "ExportOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "generated_at": {
+            "type": "string",
+            "title": "Generated At"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version",
+            "default": 1
+          },
+          "clips": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Clips",
+            "maxItems": 500
+          },
+          "feedback": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Feedback",
+            "maxItems": 500
+          },
+          "task_results": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Task Results",
+            "maxItems": 500
+          },
+          "settings": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Settings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "generated_at",
+          "clips",
+          "feedback",
+          "task_results",
+          "settings"
+        ],
+        "title": "ExportOut"
+      },
+      "FeedbackOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "clip_id": {
+            "type": "integer",
+            "title": "Clip Id"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "clip_id",
+          "message"
+        ],
+        "title": "FeedbackOut"
+      },
+      "FeedbackRequest": {
+        "properties": {
+          "clip_id": {
+            "type": "integer",
+            "title": "Clip Id"
+          },
+          "score": {
+            "type": "integer",
+            "title": "Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "clip_id",
+          "score"
+        ],
+        "title": "FeedbackRequest"
+      },
+      "GoogleLoginRequest": {
+        "properties": {
+          "id_token": {
+            "type": "string",
+            "title": "Id Token"
+          },
+          "referral_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Referral Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id_token"
+        ],
+        "title": "GoogleLoginRequest"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail",
+            "maxItems": 500
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthDetailOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "uptime_seconds": {
+            "type": "number",
+            "title": "Uptime Seconds"
+          },
+          "database": {
+            "type": "boolean",
+            "title": "Database"
+          },
+          "broker": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Broker"
+          },
+          "tasks": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Tasks"
+          },
+          "dlq": {
+            "type": "string",
+            "title": "Dlq"
+          },
+          "workers": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Workers"
+          },
+          "providers": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Providers",
+            "maxItems": 500
+          },
+          "embeddings": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Embeddings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "version",
+          "uptime_seconds",
+          "database",
+          "broker",
+          "tasks",
+          "dlq",
+          "workers",
+          "providers",
+          "embeddings"
+        ],
+        "title": "HealthDetailOut"
+      },
+      "HealthFlagOut": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok"
+        ],
+        "title": "HealthFlagOut"
+      },
+      "HistoryItemOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "video_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "HistoryItemOut"
+      },
+      "HistoryOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "search": {
+            "type": "string",
+            "title": "Search"
+          },
+          "sort_by": {
+            "type": "string",
+            "title": "Sort By"
+          },
+          "sort_dir": {
+            "type": "string",
+            "title": "Sort Dir"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/HistoryItemOut"
+            },
+            "type": "array",
+            "title": "Items",
+            "maxItems": 500
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "page",
+          "page_size",
+          "total",
+          "search",
+          "sort_by",
+          "sort_dir",
+          "items"
+        ],
+        "title": "HistoryOut"
+      },
+      "ModelStateOut": {
+        "properties": {
+          "trained": {
+            "type": "boolean",
+            "title": "Trained"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "confidence_mode": {
+            "type": "string",
+            "title": "Confidence Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "trained",
+          "enabled",
+          "confidence_mode"
+        ],
+        "title": "ModelStateOut"
+      },
+      "ModelStatusOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "model": {
+            "$ref": "#/components/schemas/ModelStateOut"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "model",
+          "message"
+        ],
+        "title": "ModelStatusOut"
+      },
+      "OverviewOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "user": {
+            "$ref": "#/components/schemas/DashboardUserOut"
+          },
+          "clips": {
+            "$ref": "#/components/schemas/ClipSummaryOut"
+          },
+          "recent": {
+            "items": {
+              "$ref": "#/components/schemas/RecentClipOut"
+            },
+            "type": "array",
+            "title": "Recent",
+            "maxItems": 500
+          },
+          "generated_at": {
+            "type": "string",
+            "title": "Generated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "user",
+          "clips",
+          "recent",
+          "generated_at"
+        ],
+        "title": "OverviewOut"
+      },
+      "OwnerSettingIn": {
+        "properties": {
+          "monitor_enabled": {
+            "type": "boolean",
+            "title": "Monitor Enabled",
+            "default": true
+          },
+          "monitor_refresh_seconds": {
+            "type": "integer",
+            "title": "Monitor Refresh Seconds",
+            "default": 30
+          },
+          "alert_queue_threshold": {
+            "type": "integer",
+            "title": "Alert Queue Threshold",
+            "default": 20
+          },
+          "notify_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notify Email"
+          }
+        },
+        "type": "object",
+        "title": "OwnerSettingIn"
+      },
+      "OwnerSettingOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "owner_user_id": {
+            "type": "integer",
+            "title": "Owner User Id"
+          },
+          "monitor_enabled": {
+            "type": "boolean",
+            "title": "Monitor Enabled"
+          },
+          "monitor_refresh_seconds": {
+            "type": "integer",
+            "title": "Monitor Refresh Seconds"
+          },
+          "alert_queue_threshold": {
+            "type": "integer",
+            "title": "Alert Queue Threshold"
+          },
+          "notify_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notify Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "owner_user_id",
+          "monitor_enabled",
+          "monitor_refresh_seconds",
+          "alert_queue_threshold"
+        ],
+        "title": "OwnerSettingOut"
+      },
+      "PerformanceFeedback": {
+        "properties": {
+          "clip_id": {
+            "type": "integer",
+            "title": "Clip Id"
+          },
+          "actual_views": {
+            "type": "integer",
+            "title": "Actual Views",
+            "default": 0
+          },
+          "actual_likes": {
+            "type": "integer",
+            "title": "Actual Likes",
+            "default": 0
+          },
+          "actual_shares": {
+            "type": "integer",
+            "title": "Actual Shares",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "clip_id"
+        ],
+        "title": "PerformanceFeedback"
+      },
+      "Platform": {
+        "type": "string",
+        "enum": [
+          "shorts",
+          "reels",
+          "tiktok"
+        ],
+        "title": "Platform"
+      },
+      "PlatformRevenueOut": {
+        "properties": {
+          "platform": {
+            "type": "string",
+            "title": "Platform"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "period_start": {
+            "type": "string",
+            "title": "Period Start"
+          },
+          "period_end": {
+            "type": "string",
+            "title": "Period End"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "platform",
+          "available",
+          "status",
+          "period_start",
+          "period_end",
+          "source"
+        ],
+        "title": "PlatformRevenueOut"
+      },
+      "PlatformsOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "platforms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Platforms",
+            "maxItems": 500
+          },
+          "default": {
+            "type": "string",
+            "title": "Default"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "platforms",
+          "default"
+        ],
+        "title": "PlatformsOut"
+      },
+      "ProfileOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          },
+          "joined_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Joined At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "id",
+          "email"
+        ],
+        "title": "ProfileOut"
+      },
+      "ProviderOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "free": {
+            "type": "boolean",
+            "title": "Free"
+          },
+          "models": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Models",
+            "maxItems": 500
+          },
+          "latency_hint": {
+            "type": "string",
+            "title": "Latency Hint"
+          },
+          "cost_tier": {
+            "type": "string",
+            "title": "Cost Tier"
+          },
+          "healthy": {
+            "type": "boolean",
+            "title": "Healthy"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "free",
+          "models",
+          "latency_hint",
+          "cost_tier",
+          "healthy"
+        ],
+        "title": "ProviderOut"
+      },
+      "ProvidersOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderOut"
+            },
+            "type": "array",
+            "title": "Providers",
+            "maxItems": 500
+          },
+          "tts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tts",
+            "maxItems": 500
+          },
+          "stt": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Stt",
+            "maxItems": 500
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "providers",
+          "tts",
+          "stt"
+        ],
+        "title": "ProvidersOut"
+      },
+      "PurgeIn": {
+        "properties": {
+          "confirm": {
+            "type": "string",
+            "title": "Confirm"
+          }
+        },
+        "type": "object",
+        "required": [
+          "confirm"
+        ],
+        "title": "PurgeIn"
+      },
+      "PurgeOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "deleted": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Deleted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "deleted"
+        ],
+        "title": "PurgeOut"
+      },
+      "QueueOut": {
+        "properties": {
+          "broker": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Broker"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Counts"
+          },
+          "dead_letter_queue": {
+            "type": "string",
+            "title": "Dead Letter Queue"
+          },
+          "retry_policy": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Retry Policy"
+          }
+        },
+        "type": "object",
+        "required": [
+          "broker",
+          "counts",
+          "dead_letter_queue",
+          "retry_policy"
+        ],
+        "title": "QueueOut"
+      },
+      "RecentClipOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "video_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "RecentClipOut"
+      },
+      "RenderEnqueueIn": {
+        "properties": {
+          "video_url": {
+            "type": "string",
+            "title": "Video Url"
+          },
+          "clips": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Clips",
+            "maxItems": 500
+          },
+          "lang": {
+            "type": "string",
+            "title": "Lang",
+            "default": "id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "video_url",
+          "clips"
+        ],
+        "title": "RenderEnqueueIn"
+      },
+      "RenderEnqueueOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "task_id": {
+            "type": "string",
+            "title": "Task Id"
+          },
+          "queued_at": {
+            "type": "string",
+            "title": "Queued At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "task_id",
+          "queued_at"
+        ],
+        "title": "RenderEnqueueOut"
+      },
+      "RevenueAdviceOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "recommendations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recommendations",
+            "maxItems": 500
+          },
+          "generated_at": {
+            "type": "string",
+            "title": "Generated At"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "provider",
+          "model",
+          "generated_at"
+        ],
+        "title": "RevenueAdviceOut"
+      },
+      "RevenueSummaryOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "days": {
+            "type": "integer",
+            "title": "Days"
+          },
+          "platforms": {
+            "items": {
+              "$ref": "#/components/schemas/PlatformRevenueOut"
+            },
+            "type": "array",
+            "title": "Platforms",
+            "maxItems": 500
+          },
+          "total_available": {
+            "type": "number",
+            "title": "Total Available"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "generated_at": {
+            "type": "string",
+            "title": "Generated At"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "days",
+          "platforms",
+          "total_available",
+          "currency",
+          "generated_at"
+        ],
+        "title": "RevenueSummaryOut"
+      },
+      "SearchRequest": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 2,
+            "title": "Query"
+          },
+          "max_results": {
+            "type": "integer",
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Max Results",
+            "default": 10
+          }
+        },
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "title": "SearchRequest"
+      },
+      "ShortsRequest": {
+        "properties": {
+          "topic": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 3,
+            "title": "Topic"
+          },
+          "video_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Url",
+            "description": "Satu video sumber (kompatibel lama)"
+          },
+          "video_urls": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "title": "Video Urls",
+            "description": "Beberapa video sumber; minimal 2 untuk mix"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/Platform",
+            "default": "shorts"
+          },
+          "target_language": {
+            "type": "string",
+            "title": "Target Language",
+            "default": "id"
+          },
+          "max_clips": {
+            "type": "integer",
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Max Clips",
+            "default": 3
+          },
+          "render_video": {
+            "type": "boolean",
+            "title": "Render Video",
+            "default": false
+          },
+          "mix_sources": {
+            "type": "boolean",
+            "title": "Mix Sources",
+            "description": "Gabung klip dari beberapa sumber jadi satu MP4",
+            "default": true
+          },
+          "min_source_seconds": {
+            "type": "integer",
+            "maximum": 7200.0,
+            "minimum": 0.0,
+            "title": "Min Source Seconds",
+            "description": "Durasi minimum tiap video sumber (default 4 menit)",
+            "default": 240
+          },
+          "auto_discover": {
+            "type": "boolean",
+            "title": "Auto Discover",
+            "description": "Otomatis cari video dari topik bila tidak ada video_url/video_urls",
+            "default": true
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider",
+            "description": "Kosong → AGENT_PROVIDER/discovery"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model",
+            "description": "Kosong → AGENT_MODEL/katalog"
+          }
+        },
+        "type": "object",
+        "required": [
+          "topic"
+        ],
+        "title": "ShortsRequest"
+      },
+      "StatsOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "daily": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Daily"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "peak": {
+            "type": "integer",
+            "title": "Peak"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "daily",
+          "total",
+          "peak"
+        ],
+        "title": "StatsOut"
+      },
+      "TaskActionOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "task_id": {
+            "type": "string",
+            "title": "Task Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "task_id"
+        ],
+        "title": "TaskActionOut"
+      },
+      "TaskOut": {
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "title": "Task Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "attempts": {
+            "type": "integer",
+            "title": "Attempts",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "task_id",
+          "status"
+        ],
+        "title": "TaskOut"
+      },
+      "Token": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "token_type"
+        ],
+        "title": "Token"
+      },
+      "TraceOut": {
+        "properties": {
+          "event": {
+            "type": "string",
+            "title": "Event"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp"
+          },
+          "trace_id": {
+            "type": "string",
+            "title": "Trace Id"
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event",
+          "timestamp",
+          "trace_id"
+        ],
+        "title": "TraceOut"
+      },
+      "UserOut": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "username"
+        ],
+        "title": "UserOut"
+      },
+      "UserSettingIn": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "bio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bio"
+          },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
+          "preferred_language": {
+            "type": "string",
+            "title": "Preferred Language",
+            "default": "id"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone",
+            "default": "Asia/Jakarta"
+          },
+          "email_notifications": {
+            "type": "boolean",
+            "title": "Email Notifications",
+            "default": true
+          }
+        },
+        "type": "object",
+        "title": "UserSettingIn"
+      },
+      "UserSettingOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "bio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bio"
+          },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
+          "preferred_language": {
+            "type": "string",
+            "title": "Preferred Language"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "email_notifications": {
+            "type": "boolean",
+            "title": "Email Notifications"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "preferred_language",
+          "timezone",
+          "email_notifications"
+        ],
+        "title": "UserSettingOut"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location",
+            "maxItems": 500
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "VideoRequest": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "user_query": {
+            "type": "string",
+            "title": "User Query",
+            "default": "momen paling seru dan penting"
+          },
+          "target_language": {
+            "type": "string",
+            "title": "Target Language",
+            "default": "id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "VideoRequest"
+      },
+      "ViralFeaturesOut": {
+        "properties": {
+          "duration_score": {
+            "type": "number",
+            "title": "Duration Score"
+          },
+          "title_power_words": {
+            "type": "integer",
+            "title": "Title Power Words"
+          },
+          "desc_power_words": {
+            "type": "integer",
+            "title": "Desc Power Words"
+          },
+          "title_length_score": {
+            "type": "number",
+            "title": "Title Length Score"
+          },
+          "has_broll": {
+            "type": "boolean",
+            "title": "Has Broll"
+          },
+          "audio_energy": {
+            "type": "number",
+            "title": "Audio Energy"
+          },
+          "audio_pitch": {
+            "type": "number",
+            "title": "Audio Pitch"
+          },
+          "face_emotion": {
+            "type": "number",
+            "title": "Face Emotion"
+          },
+          "face_count_norm": {
+            "type": "number",
+            "title": "Face Count Norm"
+          },
+          "hook_ratio": {
+            "type": "number",
+            "title": "Hook Ratio"
+          }
+        },
+        "type": "object",
+        "required": [
+          "duration_score",
+          "title_power_words",
+          "desc_power_words",
+          "title_length_score",
+          "has_broll",
+          "audio_energy",
+          "audio_pitch",
+          "face_emotion",
+          "face_count_norm",
+          "hook_ratio"
+        ],
+        "title": "ViralFeaturesOut"
+      },
+      "ViralScoreOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "viral_score": {
+            "type": "number",
+            "title": "Viral Score"
+          },
+          "should_render": {
+            "type": "boolean",
+            "title": "Should Render"
+          },
+          "confidence_mode": {
+            "type": "string",
+            "title": "Confidence Mode"
+          },
+          "threshold": {
+            "type": "number",
+            "title": "Threshold"
+          },
+          "features": {
+            "$ref": "#/components/schemas/ViralFeaturesOut"
+          },
+          "recommendation": {
+            "type": "string",
+            "title": "Recommendation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "title",
+          "viral_score",
+          "should_render",
+          "confidence_mode",
+          "threshold",
+          "features",
+          "recommendation"
+        ],
+        "title": "ViralScoreOut"
+      },
+      "ViralScoreRequest": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "description": "Judul klip (Indonesia atau English)"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "description": "Deskripsi/hook klip",
+            "default": ""
+          },
+          "start_time": {
+            "type": "number",
+            "title": "Start Time",
+            "description": "Detik mulai klip",
+            "default": 0
+          },
+          "end_time": {
+            "type": "number",
+            "title": "End Time",
+            "description": "Detik selesai klip",
+            "default": 60
+          },
+          "has_broll": {
+            "type": "boolean",
+            "title": "Has Broll",
+            "description": "Apakah ada B-Roll query",
+            "default": false
+          },
+          "audio_path": {
+            "type": "string",
+            "title": "Audio Path",
+            "description": "Path audio untuk analisis energi",
+            "default": ""
+          },
+          "threshold": {
+            "type": "number",
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Threshold",
+            "description": "Threshold minimum skor untuk direkomendasikan render",
+            "default": 6.5
+          }
+        },
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "title": "ViralScoreRequest"
+      },
+      "WorkersOut": {
+        "properties": {
+          "physical_cores": {
+            "type": "integer",
+            "title": "Physical Cores"
+          },
+          "recommended_workers": {
+            "type": "integer",
+            "title": "Recommended Workers"
+          },
+          "configured_workers": {
+            "type": "integer",
+            "title": "Configured Workers"
+          }
+        },
+        "type": "object",
+        "required": [
+          "physical_cores",
+          "recommended_workers",
+          "configured_workers"
+        ],
+        "title": "WorkersOut"
+      }
+    },
+    "securitySchemes": {
+      "OAuth2PasswordBearer": {
+        "type": "oauth2",
+        "flows": {
+          "password": {
+            "scopes": {},
+            "tokenUrl": "/auth/token"
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "OAuth2PasswordBearer": []
+    },
+    {}
+  ]
+}

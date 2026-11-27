@@ -1,0 +1,287 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Manrope:wght@400;500;600;700;800&display=swap');
+@import 'tailwindcss';
+@plugin '@tailwindcss/typography';
+
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  color-scheme: dark;
+
+  --ground: #060609;
+  --panel: #0e0e14;
+  --raised: #1a1a24;
+  --line: #2a2a38;
+  --ink: #f6f6f8;
+  --ink-muted: #b9b9c7;
+  --ink-faint: #9292a4;
+
+  --neon: #ffd60a;
+  --neon-soft: #ffe97a;
+  --neon-ink: #140f00;
+  --magenta: #ff4d6d;
+  --warning: #ffb020;
+  --negative: #ff4d6d;
+  --positive: #7ee787;
+
+  --glow-cyan:
+    0 0 0 1px rgba(255, 214, 10, 0.45), 0 0 22px rgba(255, 214, 10, 0.2);
+  --glow-magenta:
+    0 0 0 1px rgba(255, 77, 109, 0.4), 0 0 20px rgba(255, 77, 109, 0.18);
+  --rope-line: color-mix(in oklab, var(--line) 42%, transparent);
+
+  --background: var(--ground);
+  --foreground: var(--ink);
+  --card: var(--panel);
+  --card-foreground: var(--ink);
+  --popover: var(--raised);
+  --popover-foreground: var(--ink);
+  --primary: var(--neon);
+  --primary-foreground: var(--neon-ink);
+  --secondary: var(--raised);
+  --secondary-foreground: var(--ink);
+  --muted: var(--raised);
+  --muted-foreground: var(--ink-muted);
+  --accent: var(--raised);
+  --accent-foreground: var(--neon);
+  --destructive: var(--negative);
+  --destructive-foreground: #1a0509;
+  --border: var(--line);
+  --input: var(--line);
+  --ring: var(--neon);
+  --chart-1: var(--neon);
+  --chart-2: var(--magenta);
+  --chart-3: var(--warning);
+  --chart-4: #8ea7ff;
+  --chart-5: var(--negative);
+  --radius: 0.75rem;
+  --sidebar: var(--panel);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--neon);
+  --sidebar-primary-foreground: var(--neon-ink);
+  --sidebar-accent: var(--raised);
+  --sidebar-accent-foreground: var(--neon);
+  --sidebar-border: var(--line);
+  --sidebar-ring: var(--neon);
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  background-color: var(--ground);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-size: 0.9em;
+  border: 1px solid var(--border);
+  background: var(--raised);
+  border-radius: 7px;
+  padding: 2px 7px;
+}
+
+pre code {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+.prose pre {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.page-wrap {
+  width: min(1080px, calc(100% - 2rem));
+  margin-inline: auto;
+}
+
+.font-display {
+  font-family: 'Bebas Neue', 'Fraunces', Impact, sans-serif;
+  letter-spacing: 0.04em;
+}
+
+.display-title {
+  font-family: 'Bebas Neue', 'Fraunces', Impact, sans-serif;
+  letter-spacing: 0.02em;
+  line-height: 0.95;
+}
+
+/* Motif garis aks shonen, dipakai sekali per layar. */
+.speed-lines {
+  border-top: 3px solid color-mix(in oklab, var(--neon) 65%, var(--line));
+}
+
+button,
+a {
+  transition:
+    background-color 180ms ease,
+    color 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.neon-panel {
+  background-color: var(--panel);
+  border: 1px solid var(--line);
+  transition: border-color 180ms ease;
+}
+
+.neon-panel:hover {
+  border-color: color-mix(in oklab, var(--neon) 50%, var(--line));
+}
+
+/* Baris aksi utama: kuning neon, teks gelap, satu-satunya aksen di layar. */
+.shonen-action {
+  background-color: var(--neon);
+  color: var(--neon-ink);
+  border: 0;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+.shonen-action:hover {
+  background-color: var(--neon-soft);
+}
+
+:where(button, a):focus-visible {
+  /* prettier-ignore */
+  box-shadow: var(--glow-cyan); /* taste-skill-ignore: glow hanya saat fokus */
+}
+
+.neon-glow:hover,
+.neon-glow:focus-visible {
+  /* prettier-ignore */
+  box-shadow: var(--glow-cyan); /* taste-skill-ignore: glow hanya saat interaksi */
+}
+
+.neon-glow-magenta:hover,
+.neon-glow-magenta:focus-visible {
+  /* prettier-ignore */
+  box-shadow: var(--glow-magenta); /* taste-skill-ignore: glow hanya saat interaksi */
+}
+
+.neon-text {
+  color: var(--neon-soft);
+}
+
+.neon-muted {
+  color: var(--ink-muted);
+}
+
+@keyframes anime-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.anime-bob {
+  animation: anime-bob 1.2s ease-in-out 3;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rise-in {
+  animation: rise-in 420ms ease both;
+  animation-delay: var(--rise-delay, 0ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    color: var(--foreground);
+  }
+  a {
+    color: var(--neon);
+    text-decoration-color: rgba(232, 194, 122, 0.4);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+  }
+  a:hover {
+    color: var(--ink);
+  }
+}

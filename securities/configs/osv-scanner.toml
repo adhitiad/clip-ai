@@ -1,0 +1,6 @@
+# Kosong = pakai default OSV.dev.
+# Tambahkan override di sini bila ada dependency yang sengaja diabaikan,
+# misalnya:
+# [[IgnoredVulns]]
+# id = "GHSA-xxxx"
+# reason = "Tidak reachable dari runtime project"

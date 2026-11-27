@@ -1,24 +1,25 @@
 import os
-from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
-from jose import JWTError, jwt
-import bcrypt
-from fastapi.security import OAuth2PasswordBearer
-from fastapi import Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from dotenv import load_dotenv
-from backend.utils.db import SessionLocal
-from backend.models.user import User
 
-BASE_DIR = Path(__file__).resolve().parents[1]
-load_dotenv(dotenv_path=BASE_DIR / ".env")
+import bcrypt
+import jwt
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy.orm import Session
+
+from backend.core.env import load_env
+from backend.models.user import User
+from backend.utils.db import SessionLocal
+
+load_env("backend")
 
 # Configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "").strip()
 if not SECRET_KEY or SECRET_KEY in {
     "super-secret-antigravity-key-change-me",
     "change-me",
+    "replace_with_a_long_random_secret_key",
 }:
     raise RuntimeError(
         "SECRET_KEY tidak aman atau belum diset. Set SECRET_KEY unik di environment sebelum menjalankan server."
@@ -51,15 +52,17 @@ def get_password_hash(password: str) -> str:
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.now(timezone.utc) + timedelta(
+            minutes=ACCESS_TOKEN_EXPIRE_MINUTES
+        )
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
 
-async def get_current_user(
+def get_current_user(
     token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
 ):
     credentials_exception = HTTPException(
@@ -72,8 +75,8 @@ async def get_current_user(
         email: str = payload.get("sub")
         if email is None:
             raise credentials_exception
-    except JWTError:
-        raise credentials_exception
+    except jwt.InvalidTokenError:
+        raise credentials_exception from None
 
     user = db.query(User).filter(User.email == email).first()
     if user is None:

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Ganti localhost dengan domain produksi saat deploy. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>http://localhost:3000/landing</loc></url>
+  <url><loc>http://localhost:3000/login</loc></url>
+  <url><loc>http://localhost:3000/about</loc></url>
+  <url><loc>http://localhost:3000/tos</loc></url>
+  <url><loc>http://localhost:3000/privacy</loc></url>
+  <url><loc>http://localhost:3000/contact</loc></url>
+</urlset>

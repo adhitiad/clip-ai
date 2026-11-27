@@ -1,0 +1,20 @@
+diff --git a/node_modules/follow-redirects/.bun-tag-bdf53b2967baa709 b/.bun-tag-bdf53b2967baa709
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/index.js b/index.js
+index f96546b7fafa46185d632b0140400fa113261c87..ed333c49ad688c76cc0d8d73a80292ef7213e1f7 100644
+--- a/index.js
++++ b/index.js
+@@ -653,7 +653,11 @@ function createErrorType(code, message, baseClass) {
+   function CustomError(properties) {
+     // istanbul ignore else
+     if (isFunction(Error.captureStackTrace)) {
+-      Error.captureStackTrace(this, this.constructor);
++      try {
++        Error.captureStackTrace(this, this.constructor);
++      } catch (captureError) {
++        // Bun menolak subclass Error; stack trace tidak esensial.
++      }
+     }
+     Object.assign(this, properties || {});
+     this.code = code;
